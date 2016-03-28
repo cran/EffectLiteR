@@ -59,7 +59,9 @@ shinyServer(function(input, output, session) {
     x <- input$variablex
     
     k <- NULL; if(length(input$variablek) != 0){k <- input$variablek}
-    fixed.cell <- FALSE; if(input$fixed.cell == "fixed"){fixed.cell <- TRUE}
+    fixed.cell <- FALSE; fixed.z <- FALSE
+    if(input$fixed.cell == "fixed"){fixed.cell <- TRUE}
+    if(input$fixed.cell == "fixed+e"){fixed.cell <- TRUE; fixed.z=TRUE}
     
     z <- NULL; if(length(input$variablez) != 0){z <- input$variablez}
     if(input$latentz & input$nlatentz > 0){z <- c(z,latentcov())}
@@ -98,6 +100,7 @@ shinyServer(function(input, output, session) {
                  se=input$se,
                  bootstrap=input$bootstrap,
                  fixed.cell=fixed.cell,
+                 fixed.z=fixed.z,
                  interactions=interactions,
                  propscore=propscore,                 
                  ids=ids,
@@ -140,6 +143,13 @@ shinyServer(function(input, output, session) {
     kstar <- NULL
     if(!is.null(input$variablek)){kstar <- "K"}
     zselect <- c(input$variablez, input$variablek, kstar, input$variablex)
+    
+    if(input$latentz & input$nlatentz > 0){
+      nameslatentz <- c(input$name.etaz1, input$name.etaz2, input$name.etaz3,
+                        input$name.etaz4, input$name.etaz5)
+      nameslatentz <- nameslatentz[1:input$nlatentz]
+      zselect <- c(nameslatentz, zselect)
+    }
     
     d <- dataInput()
     x <- d[[input$variablex]]    
@@ -198,6 +208,7 @@ shinyServer(function(input, output, session) {
       
     }else if(input$latenty | input$nlatentz > 0){
       
+      ## determine number of cells
       d <- dataInput()
       ng <- length(unique(d[[input$variablex]]))
       nk <- 1
@@ -207,6 +218,7 @@ shinyServer(function(input, output, session) {
           nk <- nk*length(levels(tmpvar))
         }        
       }
+      ncells <- ng*nk
       
       names <- NULL
       indicators <- NULL
@@ -246,10 +258,13 @@ shinyServer(function(input, output, session) {
       names <- unlist(names)
       mmodel <- unlist(mmodel)
       
+      ## switch to default options if custom mmodel is not specified
+      if(!input$custommeasmodels){mmodel <- NULL}
+      
       mm <- generateMeasurementModel(
         names=names,
         indicators=indicators,
-        ncells=ng*nk,
+        ncells=ncells,
         model=mmodel
       )
       
@@ -381,20 +396,18 @@ shinyServer(function(input, output, session) {
 
   ###### Output Conditional Effects Table #########
   output$helptextcondeffects <- renderPrint({
-    if(input$variabley == "" || input$variablex == "" || 
-         input$latenty || input$latentz){
-      
-      cat("Conditional effects are only shown if you have specified the dependent variable and the treatment variable. Conditional effects are not available if there are latent variables in the analysis.")
+    if((input$variabley == "" & !input$latenty) || input$variablex == "" ){
+           
+      cat("Conditional effects are only shown if you have specified the dependent variable and the treatment variable.")
       
     }else{
       
-      cat("This datatable shows the values and standard errors of the effect function for given values of the categorical and continuous covariates.")
+      cat("This datatable shows the values and standard errors of the effect function for given values of the categorical and continuous covariates. Regression factor scores are used for latent covariates.")
     }
   })
     
   output$condeffs = renderDataTable({
-    if(input$variabley == "" || input$variablex == "" || 
-         input$latenty || input$latentz){
+    if((input$variabley == "" & !input$latenty) || input$variablex == "" ){
       return(NULL)
     }else{            
       m1 <- model()
@@ -489,11 +502,11 @@ shinyServer(function(input, output, session) {
   ###### Output Plot 3 #########
   output$helptextplot3 <- renderPrint({
     if(input$variabley == "" || input$variablex == "" || 
-         (is.null(input$variablez) & is.null(input$variablek) & 
+         (is.null(input$variablez) & is.null(input$variablek) & !input$latentz & 
             is.null(input$propscore))  || 
          input$latenty || input$latentz){
       
-      cat("Plot 3 only works for a manifest dependent variable, a treatment variable, at least one covariate, and no latent covariates.")
+      cat("Plot 3 is only shown if a dependent variable, a treatment variable, and at least one covariate is specified.")
       
     }else{
       
@@ -503,10 +516,9 @@ shinyServer(function(input, output, session) {
   
   output$plot3 <- renderPlot({    
     
-    if(input$variabley == "" || input$variablex == "" || 
-         (is.null(input$variablez) & is.null(input$variablek) & 
-            is.null(input$propscore)) || 
-         input$latenty || input$latentz){
+    if((input$variabley == "" & !input$latenty) || input$variablex == "" || 
+         (is.null(input$variablez) & is.null(input$variablek) & !input$latentz & 
+            is.null(input$propscore))){
       return(NULL)
     }else{
       
@@ -574,8 +586,9 @@ shinyServer(function(input, output, session) {
                          "\")")
       }
       
-      
-      fixed.cell <- FALSE; if(input$fixed.cell == "fixed"){fixed.cell <- TRUE}
+      fixed.cell <- FALSE; fixed.z <- FALSE
+      if(input$fixed.cell == "fixed"){fixed.cell <- TRUE}
+      if(input$fixed.cell == "fixed+e"){fixed.cell <- TRUE; fixed.z=TRUE}
       
       z <- NULL
       printz <- "NULL"
@@ -616,6 +629,10 @@ shinyServer(function(input, output, session) {
       printadd <- "character()"
       if(input$add.syntax != ""){printadd <- "add"}
       
+      printbootstrap <- ""
+      if(input$se == "boot"){
+        printbootstrap <- paste0("bootstrap=",input$bootstrap, ", ")}
+      
       tmp <- paste0("#### Call for effectLite #### \n\n",
                     "effectLite(",
                     "y=\"", dv, "\", ",
@@ -627,8 +644,9 @@ shinyServer(function(input, output, session) {
                     "measurement=", printmm, ", ",
                     "missing=\"", input$missing, "\", ",
                     "se=\"", input$se, "\", ",
-                    "bootstrap=", input$bootstrap, ", ",
+                    printbootstrap,
                     "fixed.cell=", fixed.cell, ", ",
+                    "fixed.z=", fixed.z, ", ",
                     "interactions=\"", interactions, "\", ",
                     "propscore=", printpropscore, ", ",
                     "ids=", printids, ", ",
@@ -651,15 +669,19 @@ shinyServer(function(input, output, session) {
       cellabel <- paste0("c(\"",
                          paste(m1@input@vlevels$cell, collapse="\",\""), 
                          "\")")
+      printbootstrap <- ""
+      if(input$se == "boot"){
+        printbootstrap <- paste0("bootstrap=",m1@input@bootstrap, ", ")}
+      
       tmp <- paste0("#### Call for lavaan::sem #### \n\n",
                   "sem(", "model=model, ",
                   "group=\"", "cell", "\", ", 
                   "missing=\"", m1@input@missing, "\", ",
                   "se=\"", m1@input@se, "\", ", 
-                  "bootstrap=\"", m1@input@bootstrap, "\", ",
+                  printbootstrap,
                   "group.label=", cellabel, ", ",
                   "data=data, ", 
-                  "fixed.x=FALSE, ",
+                  "fixed.x=", m1@input@fixed.z, ", ",
                   "group.w.free=", !m1@input@fixed.cell, ", ",
                   "mimic=\"", "mplus", "\") ")
       cat(tmp, "\n")  
@@ -718,5 +740,89 @@ shinyServer(function(input, output, session) {
                   quote=F)
     }
   )
+  
+  ##### Conditional effects II
+  output$ui <- renderUI({
+    
+    m1 <- model()
+    condeffects <- m1@results@condeffects
+    vnamesk <- m1@input@vnames$k
+    vlevelsk <- m1@input@vlevels$levels.k.original
+    vnamesz <- m1@input@vnames$z
+    numberks <- length(vnamesk)
+    numberzs <- length(vnamesz)
+    covnames <- c(vnamesk,vnamesz)
+    uilist <- vector("list", length(covnames))
+    
+    if(numberks==0 & numberzs==0){return(NULL)}
+    
+    if(numberks>0){
+    for(i in 1:numberks){
+      uilist[[i]] <- selectInput(inputId = paste0('valk',i), 
+                                 label = vnamesk[i], 
+                                 choices = vlevelsk[i],
+                                 width='90%')
+    }}
+    
+    if(numberzs>0){
+    for(i in 1:numberzs){
+      uilist[[numberks+i]] <- numericInput(inputId = paste0('valz',i),
+                label = vnamesz[i],
+                value = round(mean(condeffects[[vnamesz[i]]], na.rm=T),3),
+                width='90%')
+    }}
+    
+    uilist
+    
+  })
+  
+  
+  ## help text conditional effects 2
+  output$helptextcondeffects2 <- renderPrint({
+    if((input$variabley == "" & !input$latenty) || input$variablex == "" ){
+      
+      cat("Conditional effects are only available if you have specified the dependent variable and the treatment variable.")
+      
+    }else{
+      
+      cat("Conditional effects for user specified values of categorical and continuous covariates.")
+    }
+  })
+  
+  
+  ## output conditional effects 2
+  output$outputcondeffect2 <- renderPrint({
+    
+    m1 <- model()
+    vnamesk <- m1@input@vnames$k
+    vnamesz <- m1@input@vnames$z
+    numberks <- length(vnamesk)
+    numberzs <- length(vnamesz)
+    covnames <- c(vnamesk,vnamesz)
+    
+    valuesk <- list()
+    valuesz <- list()
+
+    if(numberks>0){
+      for(i in 1:numberks){
+        valuesk <- c(valuesk, input[[paste0('valk',i)]])
+      }}
+    
+    if(numberzs>0){
+      for(i in 1:numberzs){
+        valuesz <- c(valuesz, input[[paste0('valz',i)]])
+    }}
+    
+    
+    newdata <- data.frame(c(valuesk, valuesz))
+    try({names(newdata) <- covnames}, silent=TRUE)
+    
+    try({indeff <- round(elrPredict(m1, newdata),3)}, silent=TRUE)
+    try({print(indeff, row.names=F, print.gap=3)}, silent=TRUE)
+    
+  })
+  
+  
+    
   
 })
