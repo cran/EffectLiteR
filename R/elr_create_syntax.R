@@ -1,5 +1,360 @@
 
 
+createSyntax <- function(obj){
+  
+  model <- character()
+  
+  ## lavaan syntax
+  if(obj@input@method == "sem"){
+    model <- createLavaanSyntax(obj)
+  }
+  
+  ## lm syntax
+  if(obj@input@method == "lm"){
+    model <- createLMSyntax(obj)
+  }
+  
+  ## syntax for main hypotheses
+  hypotheses <- createHypothesesSyntax(obj, type="main")
+  hypothesesk <- createHypothesesSyntax(obj, type="kconditional")
+  
+  res <- new("syntax",             
+             model=model,
+             hypotheses=hypotheses,
+             hypothesesk=hypothesesk
+  )
+  
+}
+
+
+
+createLavaanSyntax <- function(obj) {
+  
+  inp <- obj@input
+  parnames <- obj@parnames
+  
+  ## input information
+  y <- inp@vnames$y
+  z <- inp@vnames$z  
+  ng <- inp@ng
+  nz <- inp@nz
+  nk <- inp@nk
+  fixed.cell <- inp@fixed.cell
+  fixed.z <- inp@fixed.z
+  sampmeanz <- inp@sampmeanz
+  homoscedasticity <- inp@homoscedasticity
+  observed.freq <- inp@observed.freq
+  interactions <- inp@interactions
+  
+  ## parnames
+  alphas <- parnames@alphas
+  betas <- parnames@betas
+  gammas <- parnames@gammas
+  constrainedgammas <- parnames@constrainedgammas
+  cellmeanz <- parnames@cellmeanz
+  relfreq <- parnames@relfreq
+  groupw <- parnames@groupw
+  meanz <- parnames@meanz
+  pk <- parnames@pk
+  px <- parnames@px
+  Ezk <- parnames@Ezk
+  Egx <- parnames@Egx
+  adjmeans <- parnames@adjmeans
+  Pkgx <- parnames@Pkgx
+  Pxgk <- parnames@Pxgk
+  Ezgx <- parnames@Ezgx
+  Ezgk <- parnames@Ezgk
+  Ezkgx <- parnames@Ezkgx
+  Egxgx <- parnames@Egxgx
+  Egxgk <- parnames@Egxgk
+  Egxgxk <- parnames@Egxgxk
+  AveEffZ <- parnames@AveEffZ
+  
+  
+  model <- "#### lavaan Syntax for EffectLiteR Model ####"
+  
+  ## measurement model
+  if(length(inp@measurement) != 0){
+    model <- paste0(model, "\n\n## Measurement Model \n")
+    model <- paste0(model, inp@measurement)
+  }
+  
+  ## syntax intercepts
+  model <- paste0(model, "\n\n## Structural Model \n")
+  model <- paste0(model, create_syntax_intercepts(y,alphas))
+  
+  ## syntax regression coefficients in each cell
+  model <- paste0(model, create_syntax_regcoef(y,z,nz,alphas))
+  
+  ## mean z in each cell
+  model <- paste0(model, create_syntax_cellmeanz(z, nz, fixed.z, cellmeanz, 
+                                                 sampmeanz))
+  
+  ## covariances between stochastic z
+  model <- paste0(model, create_syntax_covz(z, nz, fixed.z))
+  
+  ## homoscedastic residual variances
+  model <- paste0(model, create_syntax_homoscedasticity(y,ng,nk,homoscedasticity))
+  
+  ## compute relative group frequencies
+  model <- paste0(model, create_syntax_group_freq(fixed.cell, relfreq, 
+                                                  observed.freq, groupw))
+  
+  ## compute betas based on alphas
+  model <- paste0(model, create_syntax_betas(betas, alphas, ng, nk, nz))
+  
+  ## compute gammas based on betas
+  model <- paste0(model, create_syntax_gammas(gammas, betas, ng, nk, nz))
+  
+  ## compute unconditional means of z
+  model <- paste0(model, create_syntax_ez(nz, meanz, cellmeanz, relfreq))
+  
+  ## compute unconditional probabilities of K*=k
+  model <- paste0(model, create_syntax_pk(nk, pk, relfreq))
+  
+  ## compute unconditional probabilities of X=x
+  model <- paste0(model, create_syntax_ex(px, ng, nk, relfreq))
+  
+  ## compute unconditional means of Z*K 
+  model <- paste0(model, create_syntax_Ezk(ng, nk, nz, Ezk, cellmeanz, relfreq))
+  
+  ## compute average effects
+  model <- paste0(model, create_syntax_Egx(ng,nk,nz,pk,meanz,Ezk,Egx,gammas))  
+  
+  ## compute adjusted means
+  model <- paste0(model, create_syntax_adjmeans(ng,nk,nz,pk,meanz,Ezk,adjmeans,gammas))
+  
+  ## conditional probabilities of K=k given X=x (Pkgx)
+  model <- paste0(model, create_syntax_Pkgx(ng, nk, relfreq, Pkgx, px))
+  
+  ## conditional probabilities of X=x given K=k (Pxgk)
+  model <- paste0(model, create_syntax_Pxgk(ng, nk, relfreq, Pxgk, pk))
+  
+  ## conditional expectations of Z given X=x (Ezgx)
+  model <- paste0(model, create_syntax_Ezgx(ng, nk, nz, Ezgx, Pkgx, cellmeanz))
+  
+  ## conditional expectations of Z given K=k (Ezgk)
+  model <- paste0(model, create_syntax_Ezgk(ng,nk,nz,cellmeanz,Ezgk,Pxgk))
+  
+  ## conditional expectations of Z*K given X=x (Ezkgx)
+  model <- paste0(model, create_syntax_Ezkgx(ng,nk,nz,Ezkgx,cellmeanz,Pkgx))
+  
+  ## effects given a treatment condition
+  model <- paste0(model, create_syntax_Egxgx(ng,nk,nz,Pkgx,Ezgx,Ezkgx,Egxgx,gammas))
+  
+  ## Effects given a value k of K  
+  model <- paste0(model, create_syntax_Egxgk(ng,nk,Egxgk,Ezgk,gammas))
+  
+  ## Effects given X=x and K=k
+  model <- paste0(model, create_syntax_Egxgxk(ng,nk,nz,Egxgxk,gammas,cellmeanz))
+  
+  ## Average effects of continuous covariates
+  model <- paste0(model, create_syntax_AveEffZ(nz, alphas, relfreq, AveEffZ))
+  
+  ## Average effects of categorical covariate K
+  model <- paste0(model, create_syntax_AveEffK(ng,nk,nz,pk,meanz,Ezk,Egx,gammas))  
+  
+  ## Constraints about 2 and 3 way interactions
+  model <- paste0(model, 
+                  create_syntax_interaction_constraints(constrainedgammas))
+  
+  ## additional syntax
+  if(length(inp@add) != 0){
+    model <- paste0(model, "\n\n## Additional User Defined Syntax \n")
+    model <- paste0(model, inp@add)
+  }
+  
+  return(model)
+  
+}
+
+
+
+createHypothesesSyntax <- function(obj, type="main"){
+  
+  ng <- obj@input@ng
+  nk <- obj@input@nk
+  Egx <- obj@parnames@Egx
+  gammas <- obj@parnames@gammas
+  
+  if(type=="main"){
+    
+    ## Hypothesis 1: No average treatment effects
+    hypothesis1 <- paste(Egx, "== 0", collapse="\n")
+    
+    ## Hypothesis 2: No covariate effects in control group
+    gammas_tmp <- matrix(c(gammas), ncol=ng)[-1,1]
+    hypothesis2 <- paste(gammas_tmp, "== 0", collapse="\n")
+    
+    ## Hypothesis 3: No treatment*covariate interaction
+    gammas_tmp <- matrix(c(gammas), ncol=ng)[-1,-1]
+    hypothesis3 <- paste(gammas_tmp, "== 0", collapse="\n")
+    
+    ## Hypothesis 4: No treatment effects
+    gammas_tmp <- matrix(c(gammas), ncol=ng)[,-1]
+    hypothesis4 <- paste(gammas_tmp, "== 0", collapse="\n")
+    
+    hypotheses <- list(hypothesis1=hypothesis1,
+                       hypothesis2=hypothesis2,
+                       hypothesis3=hypothesis3,
+                       hypothesis4=hypothesis4)
+    
+  }else if(type=="kconditional"){
+    
+    hypotheses <- vector("list",length=nk)
+    
+    if(nk>1){
+      
+      Egxk <- matrix(obj@parnames@Egxgk, nrow=ng-1, ncol=nk)
+      
+      for(i in 1:nk){
+        hypotheses[[i]] <- paste(Egxk[,i], "== 0", collapse="\n")
+      }
+      
+      names(hypotheses) <- paste0("hypothesisk", 0:(nk-1))
+    }
+    
+  }
+  
+  
+  return(hypotheses)
+}
+
+
+
+
+createLMSyntax <- function(obj) {
+  
+  inp <- obj@input
+  parnames <- obj@parnames
+  
+  ## input information
+  y <- inp@vnames$y
+  z <- inp@vnames$z  
+  ng <- inp@ng
+  nz <- inp@nz
+  nk <- inp@nk
+  fixed.cell <- inp@fixed.cell
+  fixed.z <- inp@fixed.z
+  sampmeanz <- inp@sampmeanz
+  observed.freq <- inp@observed.freq
+  interactions <- inp@interactions
+  
+  ## parnames
+  gammas <- parnames@gammas
+  constrainedgammas <- parnames@constrainedgammas
+  unconstrainedgammas <- gammas
+  
+  betas <- parnames@betas
+  unconstrainedbetas <- betas
+  
+  if(length(constrainedgammas) != 0){
+    idx <- which(gammas %in% constrainedgammas) 
+    unconstrainedgammas <- gammas[-idx]
+    unconstrainedbetas <- betas[-idx]
+  }
+  
+  cellmeanz <- parnames@cellmeanz
+  relfreq <- parnames@relfreq
+  groupw <- parnames@groupw
+  meanz <- parnames@meanz
+  pk <- parnames@pk
+  px <- parnames@px
+  Ezk <- parnames@Ezk
+  Egx <- parnames@Egx
+  adjmeans <- parnames@adjmeans
+  Pkgx <- parnames@Pkgx
+  Pxgk <- parnames@Pxgk
+  Ezgx <- parnames@Ezgx
+  Ezgk <- parnames@Ezgk
+  Ezkgx <- parnames@Ezkgx
+  Egxgx <- parnames@Egxgx
+  Egxgk <- parnames@Egxgk
+  Egxgxk <- parnames@Egxgxk
+  
+  
+  model <- "#### lm Syntax for EffectLiteR Model ####"
+  
+  ## regression model
+  model <- paste0(model, "\n\n## Regression Model \n")
+  tmp <- paste0("mm",1:length(unconstrainedbetas))
+  tmp <- paste0(unconstrainedbetas, "*", tmp, collapse=" + ")
+  model <- paste0(model, paste0(y, " ~ ", tmp))
+  
+  ## compute relative group frequencies
+  model <- paste0(model, create_syntax_group_freq_lm(fixed.cell, relfreq, 
+                                                     observed.freq, groupw))
+  
+  ## "compute" gammas based on betas
+  tmp <- paste0(unconstrainedgammas, " := ", unconstrainedbetas, collapse="\n")
+  model <- paste0(model, "\n\n" ,tmp)
+  
+  ## constraints on interactions
+  model <- paste0(model,
+                  create_syntax_interaction_constraints_lm(constrainedgammas))
+  
+    
+  ## mean z in each cell
+  model <- paste0(model, create_syntax_cellmeanz(z, nz, fixed.z, cellmeanz, 
+                                                 sampmeanz))
+  
+  ## compute unconditional means of z
+  model <- paste0(model, create_syntax_ez(nz, meanz, cellmeanz, relfreq))
+  
+  ## compute unconditional probabilities of K*=k
+  model <- paste0(model, create_syntax_pk(nk, pk, relfreq))
+  
+  ## compute unconditional probabilities of X=x
+  model <- paste0(model, create_syntax_ex(px, ng, nk, relfreq))
+  
+  ## compute unconditional means of Z*K 
+  model <- paste0(model, create_syntax_Ezk(ng, nk, nz, Ezk, cellmeanz, relfreq))
+  
+  ## compute average effects
+  model <- paste0(model, create_syntax_Egx(ng,nk,nz,pk,meanz,Ezk,Egx,gammas))  
+  
+  ## compute adjusted means
+  model <- paste0(model, create_syntax_adjmeans(ng,nk,nz,pk,meanz,Ezk,adjmeans,gammas))
+  
+  ## conditional probabilities of K=k given X=x (Pkgx)
+  model <- paste0(model, create_syntax_Pkgx(ng, nk, relfreq, Pkgx, px))
+  
+  ## conditional probabilities of X=x given K=k (Pxgk)
+  model <- paste0(model, create_syntax_Pxgk(ng, nk, relfreq, Pxgk, pk))
+  
+  ## conditional expectations of Z given X=x (Ezgx)
+  model <- paste0(model, create_syntax_Ezgx(ng, nk, nz, Ezgx, Pkgx, cellmeanz))
+  
+  ## conditional expectations of Z given K=k (Ezgk)
+  model <- paste0(model, create_syntax_Ezgk(ng,nk,nz,cellmeanz,Ezgk,Pxgk))
+  
+  ## conditional expectations of Z*K given X=x (Ezkgx)
+  model <- paste0(model, create_syntax_Ezkgx(ng,nk,nz,Ezkgx,cellmeanz,Pkgx))
+  
+  ## effects given a treatment condition
+  model <- paste0(model, create_syntax_Egxgx(ng,nk,nz,Pkgx,Ezgx,Ezkgx,Egxgx,gammas))
+  
+  ## Effects given a value k of K  
+  model <- paste0(model, create_syntax_Egxgk(ng,nk,Egxgk,Ezgk,gammas))
+  
+  ## Effects given X=x and K=k
+  model <- paste0(model, create_syntax_Egxgxk(ng,nk,nz,Egxgxk,gammas,cellmeanz))
+  
+  ## additional syntax
+  if(length(inp@add) != 0){
+    model <- paste0(model, "\n\n## Additional User Defined Syntax \n")
+    model <- paste0(model, inp@add)
+  }
+  
+  return(model)
+  
+}
+
+
+
+
+## functions that create parts of the lavaan/methods syntax
+
 
 create_syntax_intercepts <- function(y, alphas){
 
@@ -101,6 +456,26 @@ create_syntax_group_freq <- function(fixed.cell, relfreq, observed.freq, groupw)
     res <- paste0(res, "\n", tmp)
     
     tmp <- paste(paste0(relfreq, " := exp(", groupw, ")/N"), collapse="\n")
+    res <- paste0(res, "\n", tmp)    
+  }
+  
+  return(res)
+}
+
+
+
+
+create_syntax_group_freq_lm <- function(fixed.cell, relfreq, observed.freq, groupw){
+  
+  
+  res <- "\n\n## Relative Group Frequencies \n"
+  
+  if(fixed.cell){
+    tmp <- paste(paste0(relfreq, " := ", observed.freq), collapse="\n")
+    res <- paste0(res, tmp)       
+    
+  }else if(!fixed.cell){
+    tmp <- paste0(relfreq, " := ", groupw, collapse="\n")
     res <- paste0(res, "\n", tmp)    
   }
   
@@ -253,7 +628,7 @@ create_syntax_Egx <- function(ng,nk,nz,pk,meanz,Ezk,Egx,gammas){
 }
 
 
-create_syntax_adjmeans <- function(ng,nk,nz,pk,meanz,Ezk,adjmeans,betas){
+create_syntax_adjmeans <- function(ng,nk,nz,pk,meanz,Ezk,adjmeans,gammas){
   
   ##TODO compute adjusted means based on gammas so that it can be used in
   ## single group models as well
@@ -271,12 +646,15 @@ create_syntax_adjmeans <- function(ng,nk,nz,pk,meanz,Ezk,adjmeans,betas){
   expectations <- c(1,meanz_tmp,pkEzk_tmp)
   
   ## adjusted means
-  for(i in 1:ng){
-    tmp <- paste0(adjmeans[i]," := ",
-                  paste(betas[,,i],expectations, sep="*", collapse=" + "))
+  tmp <- paste0(adjmeans[1]," := ",
+                paste(gammas[,,1],expectations, sep="*", collapse=" + "))
+  res <- paste0(res, "\n", tmp)
+  
+  for(i in 2:ng){
+    tmp <- paste(c(gammas[,,1], gammas[,,i]), expectations, sep="*", collapse=" + ")
+    tmp <- paste0(adjmeans[i]," := ", tmp)
     res <- paste0(res, "\n", tmp)
   }
-  
   
   return(res)
 }
@@ -509,209 +887,90 @@ create_syntax_Egxgxk <- function(ng,nk,nz,Egxgxk,gammas,cellmeanz){
 }
 
 
-create_syntax_interaction_constraints <- function(ng,nk,nz,interactions,gammas){
+create_syntax_interaction_constraints <- function(constrainedgammas){
   
   res <- NULL
   
-  stopifnot(interactions %in% c("all","none","2-way","X:K","X:Z"))
-  if(interactions == "none"){
+  if(length(constrainedgammas) != 0){
     res <- paste0(res, "\n\n## Equality Constraints")
-    gammas <- matrix(c(gammas), ncol=ng)[-1,-1]
-    res <- paste0(res, "\n", paste(gammas, "== 0", collapse="\n"))
-  } 
-  if(interactions == "2-way"){
-    if(nk>1 & nz>0){
-      res <- paste0(res, "\n\n## Equality Constraints")
-      gammas <- gammas[2:(nz+1), 2:nk, 2:ng]
-      res <- paste0(res, "\n", paste(gammas, "== 0", collapse="\n"))
-    }
-  }
-  if(interactions == "X:K"){
-    if(nz>0){
-      res <- paste0(res, "\n\n## Equality Constraints")
-      gammas <- gammas[2:(nz+1), , 2:ng]
-      res <- paste0(res, "\n", paste(gammas, "== 0", collapse="\n"))
-    }
-  }
-  if(interactions == "X:Z"){
-    if(nk>1){
-      res <- paste0(res, "\n\n## Equality Constraints")
-      gammas <- gammas[, 2:nk, 2:ng]
-      res <- paste0(res, "\n", paste(gammas, "== 0", collapse="\n"))
-    }
+    res <- paste0(res, "\n", paste(constrainedgammas, "== 0", collapse="\n"))
+    
   }
 
   return(res)  
 }
 
 
-
-create_syntax_hypotheses <- function(ng, Egx, gammas){
+create_syntax_interaction_constraints_lm <- function(constrainedgammas){
   
-  ## Hypothesis 1: No average treatment effects
-  hypothesis1 <- paste(Egx, "== 0", collapse="\n")
+  res <- NULL
   
-  ## Hypothesis 2: No covariate effects in control group
-  gammas_tmp <- matrix(c(gammas), ncol=ng)[-1,1]
-  hypothesis2 <- paste(gammas_tmp, "== 0", collapse="\n")
+  if(length(constrainedgammas) != 0){
+    res <- paste0(res, "\n\n## Interaction Constraints")
+    res <- paste0(res, "\n", paste(constrainedgammas, ":= 0", collapse="\n"))
+    
+  }
   
-  ## Hypothesis 3: No treatment*covariate interaction
-  gammas_tmp <- matrix(c(gammas), ncol=ng)[-1,-1]
-  hypothesis3 <- paste(gammas_tmp, "== 0", collapse="\n")
-  
-  ## Hypothesis 4: No treatment effects
-  gammas_tmp <- matrix(c(gammas), ncol=ng)[,-1]
-  hypothesis4 <- paste(gammas_tmp, "== 0", collapse="\n")
-  
-  hypotheses <- list(hypothesis1=hypothesis1,
-                     hypothesis2=hypothesis2,
-                     hypothesis3=hypothesis3,
-                     hypothesis4=hypothesis4)
-  
-  return(hypotheses)
+  return(res)  
 }
 
 
 
-
-
-createLavaanSyntax <- function(obj) {
+create_syntax_AveEffZ <- function(nz, alphas, relfreq, AveEffZ){
   
-  inp <- obj@input
-  parnames <- obj@parnames
+  res <- NULL
   
-  ## input information
-  y <- inp@vnames$y
-  z <- inp@vnames$z  
-  ng <- inp@ng
-  nz <- inp@nz
-  nk <- inp@nk
-  fixed.cell <- inp@fixed.cell
-  fixed.z <- inp@fixed.z
-  sampmeanz <- inp@sampmeanz
-  homoscedasticity <- inp@homoscedasticity
-  observed.freq <- inp@observed.freq
-  interactions <- inp@interactions
-  
-  ## parnames
-  alphas <- parnames@alphas
-  betas <- parnames@betas
-  gammas <- parnames@gammas
-  cellmeanz <- parnames@cellmeanz
-  relfreq <- parnames@relfreq
-  groupw <- parnames@groupw
-  meanz <- parnames@meanz
-  pk <- parnames@pk
-  px <- parnames@px
-  Ezk <- parnames@Ezk
-  Egx <- parnames@Egx
-  adjmeans <- parnames@adjmeans
-  Pkgx <- parnames@Pkgx
-  Pxgk <- parnames@Pxgk
-  Ezgx <- parnames@Ezgx
-  Ezgk <- parnames@Ezgk
-  Ezkgx <- parnames@Ezkgx
-  Egxgx <- parnames@Egxgx
-  Egxgk <- parnames@Egxgk
-  Egxgxk <- parnames@Egxgxk
-  
-  
-  model <- "#### lavaan Syntax for EffectLiteR Model ####"
-  
-  ## measurement model
-  if(length(inp@measurement) != 0){
-    model <- paste0(model, "\n\n## Measurement Model \n")
-    model <- paste0(model, inp@measurement)
-  }
-  
-  ## syntax intercepts
-  model <- paste0(model, "\n\n## Structural Model \n")
-  model <- paste0(model, create_syntax_intercepts(y,alphas))
-
-  ## syntax regression coefficients in each cell
-  model <- paste0(model, create_syntax_regcoef(y,z,nz,alphas))
-  
-  ## mean z in each cell
-  model <- paste0(model, create_syntax_cellmeanz(z, nz, fixed.z, cellmeanz, 
-                                                 sampmeanz))
-  
-  ## covariances between stochastic z
-  model <- paste0(model, create_syntax_covz(z, nz, fixed.z))
-
-  ## homoscedastic residual variances
-  model <- paste0(model, create_syntax_homoscedasticity(y,ng,nk,homoscedasticity))
-  
-  ## compute relative group frequencies
-  model <- paste0(model, create_syntax_group_freq(fixed.cell, relfreq, 
-                                                  observed.freq, groupw))
-  
-  ## compute betas based on alphas
-  model <- paste0(model, create_syntax_betas(betas, alphas, ng, nk, nz))
-  
-  ## compute gammas based on betas
-  model <- paste0(model, create_syntax_gammas(gammas, betas, ng, nk, nz))
-  
-  ## compute unconditional means of z
-  model <- paste0(model, create_syntax_ez(nz, meanz, cellmeanz, relfreq))
-  
-  ## compute unconditional probabilities of K*=k
-  model <- paste0(model, create_syntax_pk(nk, pk, relfreq))
-  
-  ## compute unconditional probabilities of X=x
-  model <- paste0(model, create_syntax_ex(px, ng, nk, relfreq))
-  
-  ## compute unconditional means of Z*K 
-  model <- paste0(model, create_syntax_Ezk(ng, nk, nz, Ezk, cellmeanz, relfreq))
-
-  ## compute average effects
-  model <- paste0(model, create_syntax_Egx(ng,nk,nz,pk,meanz,Ezk,Egx,gammas))  
-
-  ## compute adjusted means
-  model <- paste0(model, create_syntax_adjmeans(ng,nk,nz,pk,meanz,Ezk,adjmeans,betas))
-  
-  ## conditional probabilities of K=k given X=x (Pkgx)
-  model <- paste0(model, create_syntax_Pkgx(ng, nk, relfreq, Pkgx, px))
-  
-  ## conditional probabilities of X=x given K=k (Pxgk)
-  model <- paste0(model, create_syntax_Pxgk(ng, nk, relfreq, Pxgk, pk))
-  
-  ## conditional expectations of Z given X=x (Ezgx)
-  model <- paste0(model, create_syntax_Ezgx(ng, nk, nz, Ezgx, Pkgx, cellmeanz))
-  
-  ## conditional expectations of Z given K=k (Ezgk)
-  model <- paste0(model, create_syntax_Ezgk(ng,nk,nz,cellmeanz,Ezgk,Pxgk))
-  
-  ## conditional expectations of Z*K given X=x (Ezkgx)
-  model <- paste0(model, create_syntax_Ezkgx(ng,nk,nz,Ezkgx,cellmeanz,Pkgx))
-  
-  ## effects given a treatment condition
-  model <- paste0(model, create_syntax_Egxgx(ng,nk,nz,Pkgx,Ezgx,Ezkgx,Egxgx,gammas))
-  
-  ## Effects given a value k of K  
-  model <- paste0(model, create_syntax_Egxgk(ng,nk,Egxgk,Ezgk,gammas))
-  
-  ## Effects given X=x and K=k
-  model <- paste0(model, create_syntax_Egxgxk(ng,nk,nz,Egxgxk,gammas,cellmeanz))
-  
-  ## Constraints about 2 and 3 way interactions
-  model <- paste0(model, 
-              create_syntax_interaction_constraints(ng,nk,nz,interactions,gammas))
-  
-  ## additional syntax
-  if(length(inp@add) != 0){
-    model <- paste0(model, "\n\n## Additional User Defined Syntax \n")
-    model <- paste0(model, inp@add)
-  }
-  
-  ## syntax for main hypotheses
-  hypotheses <- create_syntax_hypotheses(ng, Egx, gammas)
+  if(nz > 0){
     
-  
-  res <- new("lavsyntax",             
-             model=model,
-             hypotheses=hypotheses
-  )
+    res <- "\n\n## Average Effects of Continuous Covariates"
+    
+    for(i in 1:nz){
+      tmp <- paste0(AveEffZ[i] ," := ",
+                    paste(alphas[i,,],relfreq, sep="*", collapse=" + "))
+      res <- paste0(res, "\n", tmp)
+    }
+  }
   
   return(res)
+}
+
+
+create_syntax_AveEffK <- function(ng,nk,nz,pk,meanz,Ezk,Egx,gammas){
+  
+  res <- NULL
+  
+  # if(nk>1){
+  #   
+  #   res <- "\n\n## Average Effects of Categorical Covariate K"
+  #   
+  # }
+  # 
+  # TODO
+  # - Im Prinzip muesste das genauso gehen wie bei den average effects
+  # - man brauch aber noch E(Z*X)
+  # - und bei mehreren Ks wird es schwierig
+  # - ein einfacher Weg das zu testen waere das Modell nochmal durchlaufen
+  #   zu lassen mit K und X vertauscht
+  # 
+  # 
+  # ## create vector of unconditional expectations of Z, K, Z*K
+  # pk_tmp <- pk[-1]
+  # meanz_tmp <- Ezk_tmp <- pkEzk_tmp <- character()
+  # 
+  # if(nz>0){meanz_tmp <- meanz}  
+  # if(nk>1 & nz>0){Ezk_tmp <- c(matrix(Ezk, nrow=nk)[-1,])}  
+  # if(nk>1){pkEzk_tmp <- c(matrix(c(pk_tmp,Ezk_tmp), ncol=nk-1, byrow=T))}
+  # 
+  # expectations <- c(1,meanz_tmp,pkEzk_tmp)
+  # 
+  # ## average total effects  
+  # for(i in 2:ng){
+  #   tmp <- paste0(Egx[i-1]," := ",
+  #                 paste(gammas[,,i],expectations, sep="*", collapse=" + "))
+  #   res <- paste0(res, "\n", tmp)
+  # }
+  
+  return(res)  
   
 }
+

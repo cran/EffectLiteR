@@ -4,12 +4,13 @@
 \alias{effectLite}
 \title{Estimate average and conditional effects}
 \usage{
-effectLite(y, x, k = NULL, z = NULL, control = "0",
-  measurement = character(), data, fixed.cell = FALSE, fixed.z = FALSE,
-  missing = "listwise", se = "standard", bootstrap = 1000L,
-  mimic = "lavaan", syntax.only = FALSE, interactions = "all",
-  propscore = NULL, ids = ~0, weights = NULL, homoscedasticity = FALSE,
-  add = character(), ...)
+effectLite(y, x, k = NULL, z = NULL, data, method = "sem",
+  control = "default", measurement = character(),
+  fixed.cell = "default", fixed.z = "default", missing = "default",
+  se = "standard", syntax.only = FALSE, interactions = "all",
+  homoscedasticity = "default", test.stat = "default",
+  propscore = NULL, ids = ~0, weights = NULL, add = character(),
+  ...)
 }
 \arguments{
 \item{y}{Dependent variable (character string). Can be the name of a manifest variable or of a latent variable.}
@@ -20,30 +21,31 @@ effectLite(y, x, k = NULL, z = NULL, control = "0",
 
 \item{z}{Vector of continuous covariates (character vector). Names of both manifest and latent variables are allowed.}
 
-\item{control}{Value of \code{x} that is used as control group.}
+\item{data}{A data frame.}
+
+\item{method}{Can be one of \code{c("sem","lm")} and indicates which function is used to fit the model.}
+
+\item{control}{Value of \code{x} that is used as control group. If "default", takes the first entry of \code{as.factor(x)}.}
 
 \item{measurement}{Measurement model. The measurement model is lavaan syntax (character string), that will be appended before the automatically generated lavaan input. It can be used to specify a measurement for a latent outcome variable and/or latent covariates. See also the example and \code{\link[EffectLiteR]{generateMeasurementModel}}.}
-
-\item{data}{A data frame.}
 
 \item{fixed.cell}{logical. If \code{FALSE} (default), the group sizes are treated as stochastic rather than fixed.}
 
 \item{fixed.z}{logical. If \code{FALSE} (default), the continuous covariates are treated as stochastic rather than fixed. fixed.z}
 
-\item{missing}{Missing data handling. Will be passed on to \code{\link[lavaan]{sem}}.}
+\item{missing}{Missing data handling. Will be passed on to \code{\link[lavaan]{sem}} or ignored for \code{method="lm"}.}
 
 \item{se}{Type of standard errors. Will be 
-passed on to \code{\link[lavaan]{sem}}.}
-
-\item{bootstrap}{Number of bootstrap draws, if bootstrapping is used. Will be 
-passed on to \code{\link[lavaan]{sem}}.}
-
-\item{mimic}{Will be passed on to \code{\link[lavaan]{sem}}.}
+passed on to \code{\link[lavaan]{sem}} or ignored for \code{method="lm"}.}
 
 \item{syntax.only}{logical. If \code{TRUE}, only syntax is returned and the model 
 will not be estimated.}
 
-\item{interactions}{character. Can be one of \code{c("all","none","2-way","X:K","X:Z")} and indicates the type of interaction used in the parameterization of the regression.}
+\item{interactions}{character. Can be one of \code{c("all","2-way","X:K,X:Z","X:K","X:Z","none","no")} and indicates the type of interaction used in the parameterization of the regression.}
+
+\item{homoscedasticity}{logical. If \code{TRUE}, residual variances of the dependent variable are assumed to be homogeneous across cells.}
+
+\item{test.stat}{character. Can be one of \code{c("default","Chisq","Ftest")} and indicates the statistic used for the hypothesis tests. The tests are either based on the large sample Chi-Squared statistic (Wald tests) or the finite sample F statistic with approximate F distribution.  The default setting for \code{method="sem"} is \code{"Chisq"} and the default setting for \code{method="lm"} is \code{"Ftest"}.}
 
 \item{propscore}{Vector of covariates (character vector) that will be used to compute (multiple) propensity scores based on a multinomial regression without interactions. Alternatively, the user can specify a formula with the treatment variable as dependent variable for more control over the propensity score model.}
 
@@ -51,11 +53,9 @@ will not be estimated.}
 
 \item{weights}{Formula to specify sampling weights. Currently only one weight variable is supported. Will be passed on to \code{\link[lavaan.survey]{lavaan.survey}}. See \code{\link[survey]{svydesign}} for details. Note: Only use weights if you know what you are doing. For example, some conditional treatment effects may require different weights than average effects.}
 
-\item{homoscedasticity}{logical. If \code{TRUE}, residual variances of the dependent variable are assumed to be homogeneous across cells.}
-
 \item{add}{Character string that will be pasted at the end of the generated lavaan syntax. Can for example be used to add additional (in-) equality constraints or to compute user-defined conditional effects.}
 
-\item{...}{Further arguments passed to \code{\link[lavaan]{sem}}. Currently not used.}
+\item{...}{Further arguments passed to \code{\link[lavaan]{sem}}.}
 }
 \value{
 Object of class effectlite.
@@ -97,4 +97,3 @@ m1 <- effectLite(y="y", x="x", z="z", fixed.cell=TRUE, control="0",
 print(m1)
 }
 }
-

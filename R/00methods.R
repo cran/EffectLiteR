@@ -8,11 +8,22 @@ setMethod("show", "effectlite", function(object) {
   vlevels <- object@input@vlevels
   gammas <- object@parnames@gammas
   gammalabels <- object@parnames@gammalabels
+  label.g.function <- object@parnames@label.g.function
+  label.covs <- object@parnames@label.covs
+  label.Egx <- object@parnames@label.Egx
   
-  label.g.function <- "(K,Z)"; label.covs <- ",K,Z"
-  if(nk==1 & nz==0){label.g.function <- "()"; label.covs <- ""}
-  if(nk>1 & nz==0){label.g.function <- "(K)"; label.covs <- ",K"}
-  if(nk==1 & nz>0){label.g.function <- "(Z)"; label.covs <- ",Z"}
+  if(object@input@method == "sem"){
+    if(!lavInspect(object@results@lavresults, "converged")){
+      cat("\n\n------------------------------------------------------\n")
+      cat("---------------------- Warning  ----------------------\n")
+      cat("------------------------------------------------------ \n\n")
+      cat("lavaan model has not converged \n\n")
+      
+    }else if(lavInspect(object@results@lavresults, "converged")){
+      cat("\n\n--------------------- Message  --------------------- \n\n")
+      cat(" -- model converged succesfully -- \n")
+    }
+  }
   
   cat("\n\n--------------------- Variables  --------------------- \n\n")
   cat("Outcome variable Y: ", paste0(vnames$y), "\n")
@@ -22,7 +33,10 @@ setMethod("show", "effectlite", function(object) {
     cat("Categorical covariates K: ", paste0(vnames$k), "\n")
   }
   if(!is.null(vnames$z)){
-    cat("Continuous covariates Z: ", paste0(vnames$z), "\n")
+    tmp <- "Continuous covariates in Z=("
+    tmp <- paste0(tmp, paste0("Z",1:nz, collapse=","), "): ")
+    tmp <- paste0(tmp, paste0(paste0("Z", 1:nz, "="), vnames$z, collapse=" "))
+    cat(tmp, "\n")
   }
   if(!is.null(vnames$propscore)){
     v <- vnames$propscore
@@ -125,8 +139,23 @@ setMethod("show", "effectlite", function(object) {
   if(nrow(object@results@hypotheses)==0){
     cat("Wald tests for main hypotheses are currently not available for models with \n non-standard SEs and for models with (in-)equality constraints (e.g., on interactions).")
   }else{
+    
+    rowname1 <- paste0(label.Egx, collapse=" = ")
+    rowname1 <- paste0("H0: No average effects: ", rowname1, " = 0")
+    rowname2 <- paste0("H0: No covariate effects in control group: g0", label.g.function, " = constant")
+    rowname3 <- paste0("g", 1:(ng-1), label.g.function, collapse=", ")
+    rowname3 <- paste0("H0: No treatment*covariate interaction: ", rowname3, " = constant")
+    rowname4 <- paste0("g", 1:(ng-1), label.g.function, collapse=" = ")
+    rowname4 <- paste0("H0: No treatment effects: ", rowname4, " = 0")
+    
+    if(nz==0 & nk==1){
+      cat(rowname1)
+    }else{
+      cat(paste0(c(rowname1, rowname2, rowname3, rowname4), collapse="\n"))
+    }
+    cat("\n\n")
+    
     hypotheses <- object@results@hypotheses
-    names(hypotheses) <- c("Wald Chi-Square", "df", "p-value")
     print(hypotheses, digits=3, print.gap=3)
   }
   
@@ -138,11 +167,9 @@ setMethod("show", "effectlite", function(object) {
   
   
   cat("\n\n --------------------- Average Effects --------------------- \n\n")
-  namesEgx <- paste0("E[g",1:(ng-1),label.g.function,"]")
   Egx <- object@results@Egx
-  row.names(Egx) <- namesEgx
+  row.names(Egx) <- label.Egx
   print(Egx, digits=3, print.gap=3)
-  
   
   if(!(nz==0 & nk==1)){
     cat("\n\n --------------------- Effects given a Treatment Condition --------------------- \n\n")
@@ -172,7 +199,41 @@ setMethod("show", "effectlite", function(object) {
     row.names(Egxgxk) <- namesEgxgxk
     print(Egxgxk, digits=3, print.gap=3)    
   }
+
+  if(nk>1){
+  cat("\n\n--------------------- Hypotheses given K=k --------------------- \n\n")
+  if(nrow(object@results@hypothesesk)==0){
+    cat("Wald tests for these hypotheses are currently not available for models with \n non-standard SEs and for models with (in-)equality constraints (e.g., on interactions).")
+  }else{
+    
+    for(i in 1:nk){
+      tmp <- paste0("E[g",1:(ng-1),label.g.function,"|K=",i-1,"]")
+      tmp <- paste0(tmp, collapse=" = ")
+      tmp <- paste0("H0: No average effects given K=", i-1,": ", tmp, " = 0")
+      cat(tmp, "\n")
+    }
+    cat("\n")
+    
+    hypothesesk <- object@results@hypothesesk
+    print(hypothesesk, digits=3, print.gap=3)
+  }
+    
+  }
   
+  # ## currently not printed  
+  # if(nz>0){
+  #   cat("\n\n --------------------- Average Effects of Continuous Covariates --------------------- \n\n")
+  #   AveEffZ <- object@results@AveEffZ
+  #   print(AveEffZ, digits=3, print.gap=3)
+  #   
+  # }
+  
+  if(length(object@input@add > 0)){
+    if(grepl(":=", object@input@add)){
+      cat("\n\n --------------------- User Defined Parameters/Effects --------------------- \n\n")
+      AdditionalEffects <- object@results@AdditionalEffects
+      print(AdditionalEffects, digits=3, print.gap=3)
+    }}
   
   propscore <- object@input@vnames$propscore
   if(!is.null(propscore)){

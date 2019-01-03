@@ -4,7 +4,7 @@
 \alias{elrPredict}
 \title{Predict Conditional Effects}
 \usage{
-elrPredict(obj, newdata = NULL)
+elrPredict(obj, newdata = NULL, add.columns = "expected-outcomes")
 }
 \arguments{
 \item{obj}{Object of class \code{effectlite}.}
@@ -13,6 +13,8 @@ elrPredict(obj, newdata = NULL)
 categorical covariates as used when fitting the EffectLiteR model in
 obj. Only covariates (and neither the dependent variable nor indicators for 
 latent variables) should be included.}
+
+\item{add.columns}{Used to request additional columns. Can be one or several of c("covariates", "modmat", "expected-outcomes", "prop-covariates").}
 }
 \value{
 Object of class \code{"data.frame"}.
@@ -26,4 +28,3 @@ control="control", data=example01)
 newdata <- data.frame(k1="male", kateg2="1", z1=2)
 elrPredict(m1, newdata)
 }
-

@@ -3,7 +3,7 @@
 #' 
 #' Tries to determine the format of the data by the file ending and
 #' chooses the appropriate function to read data. Currently supports .csv,
-#' .dat, .txt, .sav, and .xpt and calls \code{\link[utils]{read.csv}},
+#' .dat, .txt, .sav, and .xpt and calls \code{\link[utils:read.table]{read.csv}}, \code{\link[utils:read.table]{read.csv2}},
 #' \code{\link[utils]{read.table}}, \code{\link[foreign]{read.spss}},
 #' \code{\link[foreign]{read.xport}} accordingly. The default values for
 #' arguments depend on the function used to read data.
@@ -45,8 +45,12 @@ elrReadData <- function(file, name=NULL, header="default", sep="default",
     if(header=="default"){header <- TRUE}
     if(sep=="default"){sep <- ","}
     if(dec=="default"){dec <- "."}
-    return(read.csv(file, header=header, sep=sep, dec=dec,
-                    na.strings=na.strings))
+    d <- try(read.csv(file, header=header, sep=sep, dec=dec,
+                  na.strings=na.strings), silent=TRUE)
+    if(class(d) == "try-error"){
+      d <- read.csv2(file, header=header, na.strings=na.strings)
+    }
+    return(d)
     
   }else if(suf == ".txt" || suf==".dat"){
     if(header=="default"){header <- FALSE}
@@ -62,6 +66,9 @@ elrReadData <- function(file, name=NULL, header="default", sep="default",
     
   }else if(suf == ".xpt"){
     return(foreign::read.xport(file))
+    
+  }else if(suf == ".rds"){
+    return(readRDS(file))
   }
   
 }

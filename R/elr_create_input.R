@@ -1,19 +1,67 @@
 
-createInput <- function(y, x, k, z, propscore, control, measurement, data, 
-                        fixed.cell, fixed.z, missing, se, bootstrap, mimic,
-                        interactions, ids, weights, homoscedasticity,
-                        add){
+createInput <- function(y, x, k, z, data, method, control, measurement, 
+                        fixed.cell, fixed.z, missing, se, interactions, 
+                        homoscedasticity, test.stat, propscore, ids, weights,
+                        add, method_args){
   
   d <- data
-  latentz <- z[which(!z %in% names(data))]
-  vnames <- list(y=y,x=x,k=k,z=z,propscore=propscore,latentz=latentz)  
+  latentz <- z[which(!z %in% names(data))] ##TODO fix for interactions between continuous covariates
+  manifestz <- z[which(z %in% names(data))]
+  vnames <- list(y=y,x=x,k=k,z=z,propscore=propscore,latentz=latentz,manifestz=manifestz)  
   
+  ## check consistency with method argument
+  if(method=="sem"){
+    if(fixed.cell=="default"){fixed.cell <- FALSE}
+    if(fixed.z=="default"){fixed.z <- FALSE}
+    if(homoscedasticity=="default"){homoscedasticity <- FALSE}
+    if(test.stat=="default"){test.stat <- "Chisq"}
+  }
+
+  if(method=="lm"){
+    if(fixed.cell=="default"){fixed.cell <- TRUE}
+    
+    if(fixed.z=="default"){
+      fixed.z <- TRUE
+    }else if(fixed.z==FALSE){
+      
+      if(!is.null(z)){
+        stop('EffectLiteR error: Stochastic covariates are currently not allowed with method="lm".')
+      }
+    }
+    
+    if(homoscedasticity=="default"){
+      homoscedasticity <- TRUE
+    }else if(homoscedasticity==FALSE){
+      stop('EffectLiteR error: Heteroscedasticity is currently not allowed with method="lm".')
+    }
+    
+    if(test.stat=="default"){test.stat <- "Ftest"}
+    
+    if(length(measurement) != 0){
+      stop('EffectLiteR error: Measurement models are currently not allowed with method="lm".')
+    }
+
+    if(length(add) != 0){
+      stop('EffectLiteR error: Additional syntax is currently not allowed with method="lm".')
+    }
+    
+    if(ids != ~0){
+      stop('EffectLiteR error: Complex survey functionality is currently not allowed with method="lm".')
+    }
+    
+    if(!is.null(weights)){
+      stop('EffectLiteR error: Complex survey functionality is currently not allowed with method="lm".')
+    }
+    
+  }
+  
+    
   ## treatment variable
   if(!is.factor(d[,x])){    
     d[,x] <- as.factor(d[,x])  
   }
-  stopifnot(length(levels(d[,x])) <= 10) # test if it works for > 10 (problems with subscripts?)
-  
+
+  if(control=="default"){control <- levels(d[,x])[1]}
   d[,x] <- relevel(d[,x], control)
   levels.x.original <- levels(d[,x])
   levels(d[,x]) <- paste(0:(length(levels(d[,x]))-1))  
@@ -63,51 +111,43 @@ createInput <- function(y, x, k, z, propscore, control, measurement, data,
   ## nz
   nz <- length(vnames$z)
   
-  ## check for too many cells
-  if((nk>10 & ng>10) || (nk>10 & nz>10) || (ng>10 & nz>10)){
-    stop("EffectLiteR error: Too many cells")
-  }
-  
+  ## longer parameter names for many groups and/or covariates
+  sep <- ""
+  if(ng>9 | nk>9 | nz>9){sep <- "_"}
   
   ## cell variable (xk-cells)
   if(!is.null(k)){
-    cell <- expand.grid(k=levels(d$kstar), x=levels(d[,x]))
-    cell <- with(cell, paste0(x,k))
     dsub <- cbind(d[,x],d$kstar) - 1 # use x=0,1,2... and k=0,1,2,... as labels
     d$cell <- apply(dsub, 1, function(x){
       missing_ind <- sum(is.na(x)) > 0
       if(missing_ind){
         return(NA)
       }else{
-        return(paste(x, collapse=""))
+        return(paste(x, collapse=sep))
       }
     }) 
-    d$cell <- as.factor(d$cell)    
+    
+    levels.cell <- expand.grid(k=levels(d$kstar), x=levels(d[,x]))
+    levels.cell <- with(levels.cell, paste0(x,sep,k))
+    d$cell <- factor(d$cell, levels=levels.cell)    
   }else{
-    cell <- levels(d[,x])
+    # cell <- levels(d[,x])
     d$cell <- d[,x]
   }
   
   
-  ## observed cell frequencies (fixed.cell only)
-  if(!fixed.cell){
-    observed.freq <- numeric(0)
+  ## observed cell frequencies
+  N <- nrow(d)
+  observed.freq <- c(table(d$cell)/N)
     
-  }else if(fixed.cell){
-    N <- nrow(d)
-    observed.freq <- c(table(d$cell)/N)
-    
-    if(!is.null(weights)){
-      message("EffectLiteR message: The observed frequencies have been re-computed taking into account the survey weights.")
-      weights_vector <- model.matrix(weights, d)
-      if(ncol(weights_vector) > 2){stop("EffectLiteR error: Currently only support for one weights variable")}
-      weights_vector <- weights_vector[,-1]
-      observed.freq <- c(tapply(weights_vector, d$cell, sum))
-      observed.freq <- observed.freq/sum(observed.freq) ## rescale to sum to one
-    }
+  if(!is.null(weights)){
+    weights_vector <- model.matrix(weights, d)
+    if(ncol(weights_vector) > 2){stop("EffectLiteR error: Currently only support for one weights variable")}
+    weights_vector <- weights_vector[,-1]
+    observed.freq <- c(tapply(weights_vector, d$cell, sum))
+    observed.freq <- observed.freq/sum(observed.freq) ## rescale to sum to one
+    message("EffectLiteR message: The observed frequencies have been re-computed taking into account the survey weights.")
   }
-    
-  
 
   ## observed sample means for manifest covariates (fixed.z only)
   if(nz==0){
@@ -148,15 +188,16 @@ createInput <- function(y, x, k, z, propscore, control, measurement, data,
   
   complexsurvey <- list(ids=ids, weights=weights)
   
-  ## non-standard se only work with fixed group sizes
-  if(se != "standard" & fixed.cell==FALSE){
+  ## robust se only works with fixed group sizes (TODO: Ask Yves why?)
+  if(se == "robust.sem" & fixed.cell==FALSE){
     
-    stop("EffectLiteR error: Non-standard SEs currently only work with fixed cell sizes. Please use fixed.cell=TRUE.")
+    warning("EffectLiteR warning: SE robust.sem currently only works with fixed cell sizes. Please use fixed.cell=TRUE.")
     
   }
   
   
   res <- new("input",
+             method=method,
              vnames=vnames, 
              vlevels=vlevels,
              ng=ng,
@@ -172,11 +213,11 @@ createInput <- function(y, x, k, z, propscore, control, measurement, data,
              observed.freq=observed.freq,
              sampmeanz=sampmeanz,
              se=se,
-             bootstrap=bootstrap,
-             mimic=mimic,
              interactions=interactions,
              complexsurvey=complexsurvey,
-             homoscedasticity=homoscedasticity
+             homoscedasticity=homoscedasticity,
+             test.stat=test.stat,
+             method_args=method_args
   )
   
   return(res)

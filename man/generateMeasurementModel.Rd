@@ -4,10 +4,11 @@
 \alias{generateMeasurementModel}
 \title{Generate measurement model}
 \usage{
-generateMeasurementModel(names, indicators, ncells, model = NULL)
+generateMeasurementModel(names = NULL, indicators, ncells,
+  model = NULL)
 }
 \arguments{
-\item{names}{A vector of character strings with names of latent variables.}
+\item{names}{A vector of character strings with names of latent variables. If not specified, names(indicators) is used.}
 
 \item{indicators}{A list of vectors of character strings to specify indicators of latent variables (see example).}
 
@@ -37,4 +38,3 @@ ncells = 2
 cat(generateMeasurementModel(names, indicators, ncells))
 
 }
-

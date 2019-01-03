@@ -14,26 +14,25 @@
 #' @param x Treatment variable (character string) treated as categorical variable.
 #' @param k Vector of manifest variables treated as categorical covariates (character vector).
 #' @param z Vector of continuous covariates (character vector). Names of both manifest and latent variables are allowed.
-#' @param control Value of \code{x} that is used as control group.
+#' @param data A data frame.
+#' @param method Can be one of \code{c("sem","lm")} and indicates which function is used to fit the model.
+#' @param control Value of \code{x} that is used as control group. If "default", takes the first entry of \code{as.factor(x)}.
 #' @param measurement Measurement model. The measurement model is lavaan syntax (character string), that will be appended before the automatically generated lavaan input. It can be used to specify a measurement for a latent outcome variable and/or latent covariates. See also the example and \code{\link[EffectLiteR]{generateMeasurementModel}}.
-#' @param data A data frame. 
 #' @param fixed.cell logical. If \code{FALSE} (default), the group sizes are treated as stochastic rather than fixed.
 #' @param fixed.z logical. If \code{FALSE} (default), the continuous covariates are treated as stochastic rather than fixed. fixed.z 
-#' @param missing Missing data handling. Will be passed on to \code{\link[lavaan]{sem}}.
+#' @param missing Missing data handling. Will be passed on to \code{\link[lavaan]{sem}} or ignored for \code{method="lm"}.
 #' @param se Type of standard errors. Will be 
-#' passed on to \code{\link[lavaan]{sem}}.
-#' @param bootstrap Number of bootstrap draws, if bootstrapping is used. Will be 
-#' passed on to \code{\link[lavaan]{sem}}.
-#' @param mimic Will be passed on to \code{\link[lavaan]{sem}}.
+#' passed on to \code{\link[lavaan]{sem}} or ignored for \code{method="lm"}.
 #' @param syntax.only logical. If \code{TRUE}, only syntax is returned and the model 
 #' will not be estimated.
-#' @param interactions character. Can be one of \code{c("all","none","2-way","X:K","X:Z")} and indicates the type of interaction used in the parameterization of the regression.
+#' @param interactions character. Can be one of \code{c("all","2-way","X:K,X:Z","X:K","X:Z","none","no")} and indicates the type of interaction used in the parameterization of the regression.
+#' @param homoscedasticity logical. If \code{TRUE}, residual variances of the dependent variable are assumed to be homogeneous across cells.
+#' @param test.stat character. Can be one of \code{c("default","Chisq","Ftest")} and indicates the statistic used for the hypothesis tests. The tests are either based on the large sample Chi-Squared statistic (Wald tests) or the finite sample F statistic with approximate F distribution.  The default setting for \code{method="sem"} is \code{"Chisq"} and the default setting for \code{method="lm"} is \code{"Ftest"}.
 #' @param propscore Vector of covariates (character vector) that will be used to compute (multiple) propensity scores based on a multinomial regression without interactions. Alternatively, the user can specify a formula with the treatment variable as dependent variable for more control over the propensity score model.
 #' @param ids Formula specifying cluster ID variables. Will be passed on to \code{\link[lavaan.survey]{lavaan.survey}}. See \code{\link[survey]{svydesign}} for details.
 #' @param weights Formula to specify sampling weights. Currently only one weight variable is supported. Will be passed on to \code{\link[lavaan.survey]{lavaan.survey}}. See \code{\link[survey]{svydesign}} for details. Note: Only use weights if you know what you are doing. For example, some conditional treatment effects may require different weights than average effects.
-#' @param homoscedasticity logical. If \code{TRUE}, residual variances of the dependent variable are assumed to be homogeneous across cells.
 #' @param add Character string that will be pasted at the end of the generated lavaan syntax. Can for example be used to add additional (in-) equality constraints or to compute user-defined conditional effects.
-#' @param ... Further arguments passed to \code{\link[lavaan]{sem}}. Currently not used.
+#' @param ... Further arguments passed to \code{\link[lavaan]{sem}}.
 #' @return Object of class effectlite.
 #' @examples
 #' ## Example with one categorical covariate
@@ -65,33 +64,31 @@
 #' }
 #' @export
 #' @import lavaan
-effectLite <- function(y, x, k=NULL, z=NULL, control="0", 
-                       measurement=character(), data, fixed.cell=FALSE, 
-                       fixed.z=FALSE, missing="listwise", se="standard", 
-                       bootstrap=1000L, mimic="lavaan", syntax.only=FALSE, interactions="all", 
-                       propscore=NULL, ids=~0, weights=NULL, 
-                       homoscedasticity=FALSE, add=character(),...){
+effectLite <- function(y, x, k=NULL, z=NULL, data, method="sem", control="default", 
+                       measurement=character(), fixed.cell="default", 
+                       fixed.z="default", missing="default", se="standard", 
+                       syntax.only=FALSE, interactions="all", homoscedasticity="default",
+                       test.stat="default", propscore=NULL, ids=~0, weights=NULL, 
+                       add=character(),...){
   
   obj <- new("effectlite")
-  ##TODO make use of ldots argument: sem_args <- list(...) and then pass it to sem() 
-  ##TODO change such that first class input is generated, then class parnames...
   obj@call <- match.call()
-  obj@input <- createInput(y,x,k,z,propscore,control,measurement,data, 
-                           fixed.cell, fixed.z, missing, se, bootstrap,
-                           mimic, interactions, ids, weights, homoscedasticity,
-                           add)
+  method_args <- list(...)
+  obj@input <- createInput(y, x, k, z, data, method, control, measurement, 
+                           fixed.cell, fixed.z, missing, se, interactions, 
+                           homoscedasticity, test.stat, propscore, ids, weights,
+                           add, method_args)
   obj@input <- computePropensityScore(obj@input)
   obj@parnames <- createParNames(obj)  
-  obj@lavaansyntax <- createLavaanSyntax(obj)
+  obj@syntax <- createSyntax(obj)
   
-  if(syntax.only){
-    res <- obj@lavaansyntax@model    
-  }else{
-    obj@results <- computeResults(obj)
-    res <- obj
-  }
+  if(syntax.only){return(obj@syntax@model)}    
+  obj@results <- computeResults(obj)
+  obj@results@condeffects <- computeConditionalEffects(obj)
   
-  return(res)  
+  return(obj)  
 }
+
+
 
 

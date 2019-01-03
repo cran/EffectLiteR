@@ -12,9 +12,13 @@ shinyUI(fluidPage(
         actionButton("newanalysis","Start a New Analysis"),
         uiOutput("reload"),
         hr(),        
+        selectizeInput(inputId="method", label="Statistical Model", selected="sem",
+                       choices= c("sem","lm"),
+                       width='50%'),
+        # hr(),        
         selectizeInput(inputId="exdata", label="Example Data", selected="",
                        choices= c("","nonortho","example01","example02lv",
-                                  "example_multilevel"),
+                                  "example_multilevel", "MDRS2016"),
                        options = list(placeholder = 'choose example data'),
                        width='50%'),    
         # hr(),
@@ -22,9 +26,9 @@ shinyUI(fluidPage(
           fileInput("file1", "Data File", 
                     accept=c(".csv", ".txt", ".sav", ".xpt", 
                               ".CSV", ".TXT", ".SAV", ".XPT",
-                             ".DAT", ".dat"))
+                             ".DAT", ".dat", ".RDS", ".rds", ".Rds"))
         ),
-        helpText('Select either a .csv, .dat, .txt, .sav or a .xpt file to be uploaded. The corresponding R function (read.csv, read.table, read.spss, or read.xport) will be chosen automatically with the default settings for arguments. Some default arguments can be overwritten (see additional options below).'),
+        helpText('Select either a .csv, .dat, .txt, .sav, .xpt or a .rds file to be uploaded. The corresponding R function (read.csv, read.table, read.spss, read.xport, or readRDS) will be chosen automatically with the default settings for arguments. Some default arguments can be overwritten (see additional options below).'),
         br(),
         h5(strong("Additional Options to Read Data")),
         br(),
@@ -93,8 +97,8 @@ br()
       ############ Latent Variables ###########
       tabPanel('Latent Variables',
         img(src='effectliter_logo.png', align = "right"),       
-        br(),       
-        checkboxInput("latenty", "Latent dependent variable", FALSE),        
+        br(),
+        checkboxInput("latenty", "Latent dependent variable", FALSE),
         conditionalPanel(
           condition = "input.latenty",
           selectizeInput("indicatorsy", 
@@ -109,7 +113,7 @@ br()
           ### Indicators for latent covariates
           column(8, p("Number of Latent Covariates")),
           column(4, numericInput("nlatentz", label=NULL, 0,
-                       min = 0, max = 5, width='60%')),
+                       min = 0, max = 10, width='60%')),
           ### Cov 1
           conditionalPanel(
             condition = "input.nlatentz > 0",
@@ -147,6 +151,46 @@ br()
             condition = "input.nlatentz > 4",
             selectizeInput("indicatorsz5", 
                            "Indicators of Latent Covariate 5", 
+                           "", multiple=TRUE, 
+                           options = list(placeholder = 'select indicators'))
+          ),
+          ### Cov 6
+          conditionalPanel(
+            condition = "input.nlatentz > 5",
+            selectizeInput("indicatorsz6", 
+                           "Indicators of Latent Covariate 6", 
+                           "", multiple=TRUE, 
+                           options = list(placeholder = 'select indicators'))
+          ),
+          ### Cov 7
+          conditionalPanel(
+            condition = "input.nlatentz > 6",
+            selectizeInput("indicatorsz7", 
+                           "Indicators of Latent Covariate 7", 
+                           "", multiple=TRUE, 
+                           options = list(placeholder = 'select indicators'))
+          ),
+          ### Cov 8
+          conditionalPanel(
+            condition = "input.nlatentz > 7",
+            selectizeInput("indicatorsz8", 
+                           "Indicators of Latent Covariate 8", 
+                           "", multiple=TRUE, 
+                           options = list(placeholder = 'select indicators'))
+          ),
+          ### Cov 9
+          conditionalPanel(
+            condition = "input.nlatentz > 8",
+            selectizeInput("indicatorsz9", 
+                           "Indicators of Latent Covariate 9", 
+                           "", multiple=TRUE, 
+                           options = list(placeholder = 'select indicators'))
+          ),
+          ### Cov 10
+          conditionalPanel(
+            condition = "input.nlatentz > 9",
+            selectizeInput("indicatorsz10", 
+                           "Indicators of Latent Covariate 10", 
                            "", multiple=TRUE, 
                            options = list(placeholder = 'select indicators'))
           ),
@@ -199,6 +243,41 @@ br()
             condition = "input.nlatentz > 4",
             textInput("name.etaz5", "Latent Covariate 5", 
                       value = "xi5",
+                      width='60%')
+          ),
+          ### Cov 6
+          conditionalPanel(
+            condition = "input.nlatentz > 5",
+            textInput("name.etaz6", "Latent Covariate 6", 
+                      value = "xi6",
+                      width='60%')
+          ),
+          ### Cov 7
+          conditionalPanel(
+            condition = "input.nlatentz > 6",
+            textInput("name.etaz7", "Latent Covariate 7", 
+                      value = "xi7",
+                      width='60%')
+          ),
+          ### Cov 8
+          conditionalPanel(
+            condition = "input.nlatentz > 7",
+            textInput("name.etaz8", "Latent Covariate 8", 
+                      value = "xi8",
+                      width='60%')
+          ),
+          ### Cov 9
+          conditionalPanel(
+            condition = "input.nlatentz > 8",
+            textInput("name.etaz9", "Latent Covariate 9", 
+                      value = "xi9",
+                      width='60%')
+          ),
+          ### Cov 10
+          conditionalPanel(
+            condition = "input.nlatentz > 9",
+            textInput("name.etaz10", "Latent Covariate 10", 
+                      value = "xi10",
                       width='60%')
           )
         ),
@@ -278,6 +357,66 @@ br()
                           "essentially equivalent measures" = "tau-equi",
                           "congeneric measures" = "tau-cong"),
               width='100%')
+          ),
+          ### Cov 6
+          conditionalPanel(
+            condition = "input.nlatentz > 5",
+            selectizeInput(
+              inputId="mm.etaz6", 
+              label="Measurement Model for Latent Covariate 6", 
+              choices = c("default" = "default",
+                          "equivalent measures" = "parallel",
+                          "essentially equivalent measures" = "tau-equi",
+                          "congeneric measures" = "tau-cong"),
+              width='100%')
+          ),
+          ### Cov 7
+          conditionalPanel(
+            condition = "input.nlatentz > 6",
+            selectizeInput(
+              inputId="mm.etaz7", 
+              label="Measurement Model for Latent Covariate 7", 
+              choices = c("default" = "default",
+                          "equivalent measures" = "parallel",
+                          "essentially equivalent measures" = "tau-equi",
+                          "congeneric measures" = "tau-cong"),
+              width='100%')
+          ),
+          ### Cov 8
+          conditionalPanel(
+            condition = "input.nlatentz > 7",
+            selectizeInput(
+              inputId="mm.etaz8", 
+              label="Measurement Model for Latent Covariate 8", 
+              choices = c("default" = "default",
+                          "equivalent measures" = "parallel",
+                          "essentially equivalent measures" = "tau-equi",
+                          "congeneric measures" = "tau-cong"),
+              width='100%')
+          ),
+          ### Cov 9
+          conditionalPanel(
+            condition = "input.nlatentz > 8",
+            selectizeInput(
+              inputId="mm.etaz9", 
+              label="Measurement Model for Latent Covariate 9", 
+              choices = c("default" = "default",
+                          "equivalent measures" = "parallel",
+                          "essentially equivalent measures" = "tau-equi",
+                          "congeneric measures" = "tau-cong"),
+              width='100%')
+          ),
+          ### Cov 10
+          conditionalPanel(
+            condition = "input.nlatentz > 9",
+            selectizeInput(
+              inputId="mm.etaz10", 
+              label="Measurement Model for Latent Covariate 10", 
+              choices = c("default" = "default",
+                          "equivalent measures" = "parallel",
+                          "essentially equivalent measures" = "tau-equi",
+                          "congeneric measures" = "tau-cong"),
+              width='100%')
           )
         ),
         helpText("Names of latent variables and customize measurement models are optional. If not specified, EffectLiteR picks default names and tries to guess a reasonable measurement model: Congeneric for latent variables with three or more indicators, essentially tau-equivalent for latent variables with less than three indicators and for latent variables with cross-loadings (e.g., method factors), and parallel for single-indicator latent variables.")
@@ -286,15 +425,16 @@ br()
       tabPanel('Options',
         img(src='effectliter_logo.png', align = "right"),
         br(),
-        selectInput("control", "Control Group", "", width='60%'),
+        selectInput("control", "Reference Group", "", width='60%'),
         radioButtons("missing", "Missing Data", 
                      choices=c("listwise","fiml"), 
                      selected = "listwise"),
         radioButtons("fixed.cell", "Sampling Model", 
-                     choices=c("stochastic"="stochastic",
+                     choices=c("default"="default",
+                               "stochastic"="stochastic",
                                "fixed cell sizes"="fixed",
                                "fixed cell sizes and fixed means of Z"="fixed+e"), 
-                     selected = "stochastic"),
+                     selected = "default"),
         radioButtons("se", "Standard Errors", 
                      choices=c("standard","boot","first.order",
                                "robust.sem","robust.huber.white"),
@@ -304,15 +444,12 @@ br()
           numericInput("bootstrap", "Number of bootstrap draws", 
                       min=1, max=5000, value=5)
         ),
-        br(),
-        h5("Additional Options"),
-        checkboxInput("homoscedasticity", "Homoscedastic residual variances", 
-                      value=FALSE),
-        br(),
-        h5("Add to lavaan Syntax"),
-        tags$textarea(id="add.syntax", rows=5, cols=40, ""),
-        helpText('This option is for advanced users. The text will be appended to the lavaan syntax generated by EffectLiteR. It can for example be used to add additional (in-)equality constraints or to compute user-defined conditional effects.')
-        
+        radioButtons("homoscedasticity", "Residual variances", 
+                     choices=c("default","homoscedastic", "heteroscedastic"), 
+                     selected = "default"),
+        radioButtons("test.stat", "Test statistic for hypotheses", 
+                     choices=c("default","Chisq", "Ftest"), 
+                     selected = "default")
     ),
 ########## Interactions #############
     tabPanel('Interactions',
@@ -321,9 +458,11 @@ br()
          radioButtons("interactions", "Interactions", 
                       choices=c("Full model"="all",
                                 "Only two-way interactions"="2-way",
+                                "Only X:K and X:Z interactions"="X:K,X:Z",
                                 "Only X:K interactions"="X:K",
                                 "Only X:Z interactions"="X:Z",                                
-                                "No treatment*covariate interactions"="none"), 
+                                "No treatment*covariate interactions"="none",
+                                "No interactions"="no"), 
                       selected = "all",
                       width='60%'),
          br(),
@@ -370,7 +509,28 @@ tabPanel('Complex Survey',
          helpText('The lavaan.survey package is called to account for cluster variables and sampling weights. This is an experimental feature.'),
          helpText('Note: Only use weights if you know what you are doing. For example, some conditional treatment effects may require different weights than average effects.')
          
-      )
+      ),
+########## User Specified Tests #############
+tabPanel('User-Specified Tests',
+         img(src='effectliter_logo.png', align = "right"),
+         br(),
+         h5("Test Continuous Covariates"),
+         helpText('This joint test can be used to check significance of regression coefficients (main effects and interactions) related to the selected subset of continuous covariates in the model'),
+         selectizeInput("subconcov", "", "",
+                        multiple=TRUE, selected="",
+                        options = list(placeholder = 'select subset of covariates')),
+         br(),
+         h5("User-Specified Parameters"),
+         helpText('The text will be appended to the lavaan syntax generated by EffectLiteR. It can for example be used to compute user-specified effects.'),
+         helpText('Example: newparameter := g000 + g100'),
+         tags$textarea(id="add.syntax", rows=5, cols=40, ""),
+         br(),
+         br(),
+         h5("User-Specified Wald Test"),
+         helpText('This text can be used to specify an additional (user-specified) Wald test based on names of model parameters.'),
+         helpText('Example: g000 == 0 ; g100 == 0'),
+         tags$textarea(id="add.syntax.wald", rows=5, cols=40, "")
+)
   )),
   
   mainPanel(
@@ -381,18 +541,21 @@ tabPanel('Complex Survey',
       ######### EffectLiteR ##########
       tabPanel("EffectLiteR", verbatimTextOutput("summary")),
       
-      ######### lavaan Syntax ##########
-      tabPanel("lavaan Syntax",
+      ######### lavaan or lm Syntax ##########
+      tabPanel("Syntax",
                br(),
-               downloadLink('downloadLavData', 'Download Data for lavaan'),
+               downloadLink('downloadLavData', 'Download Data'),
                br(),
                br(),
                verbatimTextOutput("elrcall"),
-               verbatimTextOutput("lavcall"),
+               conditionalPanel(
+                 condition="method == 'sem'",
+                 verbatimTextOutput("lavcall")
+               ),
                verbatimTextOutput("lavsyntax")),
       
-      ######### lavaan Results ##########
-      tabPanel("lavaan Results", verbatimTextOutput("lavresults")),
+      ######### lavaan or lm Results ##########
+      tabPanel("Results", verbatimTextOutput("lavresults")),
       
       ######### Conditional Effects I ##########
       tabPanel('Conditional Effects I', 
@@ -413,11 +576,69 @@ tabPanel('Complex Survey',
           )) ,
           column(9, wellPanel(
             h5("Conditional Effects"),
-            verbatimTextOutput("outputcondeffect2")
+            verbatimTextOutput("outputcondeffect2"),
+            br(),
+            br(),
+            h5("Descriptive Statistics for Continuous Covariates"),
+            verbatimTextOutput("descriptivestats")
           ))
                
       ),
       
+      ######### Conditional Effects III ##########
+      tabPanel("Conditional Effects III", 
+               verbatimTextOutput("helptextaggeff"),
+               br(),
+               br(),
+               column(3, wellPanel(
+                 h5("Values of Covariates and Treatment"),
+                 uiOutput("uiaggeff"),
+                 uiOutput("uiaggeff2")
+               )) ,
+               column(9, wellPanel(
+                 h5("Aggregated Effects"),
+                 verbatimTextOutput("outputaggeff")
+               )) ,
+               br(),
+               br(),
+               br(),
+               br(),
+               column(12, wellPanel(
+                 h5("Subset used to compute aggregated effects"),
+                 uiOutput("uiaggeff3"),
+                 dataTableOutput("aggeffstable")
+               ))
+      ),
+      
+      ######### Conditional Effects IV ##########
+      tabPanel("Conditional Effects IV", 
+               verbatimTextOutput("helptextcondeff4"),
+               br(),
+               br(),
+               column(5, wellPanel(
+                 selectInput("gxselectce4", 
+                             "Effect function", 
+                             "g1(K,Z)", 
+                             multiple=FALSE,
+                             selectize=TRUE),
+                 selectizeInput("variablece4", "Variable W", "", 
+                                multiple=FALSE, selected="",
+                                options = list(placeholder = 'select variable')),
+                 numericInput("bootstrapce4", "Number of bootstrap draws", 
+                              min=1, max=5000, value=NA)
+               )) ,
+               column(7, wellPanel(
+                 h5("Regression Coefficients E(gx | W)"),
+                 verbatimTextOutput("outputcondeff4")
+               ))
+      ),
+      
+      ######### Output User Specified Tests ##########
+      tabPanel("User-Specified Tests", 
+               verbatimTextOutput("covtests"),
+               verbatimTextOutput("addeffects"),
+               verbatimTextOutput("waldtest")
+      ),
       
       ######### Plot 1 ##########
       tabPanel("Plot 1", 
@@ -454,13 +675,47 @@ tabPanel('Complex Survey',
                         "Colour variable", 
                         "", 
                         multiple=FALSE,
-                        selectize=TRUE)
+                        selectize=TRUE),
+            selectInput("regline",
+                        "Regression Line",
+                        c("default","smooth","linear","none"),
+                        multiple=FALSE,
+                        selectize=TRUE),
+            br(),
+            h5("Confidence Intervals"),
+            checkboxInput("show.ci", "Show CIs", value=FALSE),
+            checkboxInput("show.cir", "Show Regression CI", value=FALSE)
           )) ,
           column(9, 
                  plotOutput("plot3"))
-          )
+      ),
+          
       
-    )    
+      ######### Plot 4 ##########
+      tabPanel("Plot 4",
+              verbatimTextOutput("helptextplot4"),
+              column(3, wellPanel(
+              selectInput("gxselect2",
+                          "Effect function",
+                          "g1(K,Z)",
+                          multiple=FALSE,
+                          selectize=TRUE),
+              selectInput("zselect4",
+                          "Colour variable",
+                          "",
+                          multiple=FALSE,
+                          selectize=TRUE),
+              br(),
+              h5("Confidence Intervals"),
+              checkboxInput("show.ci2", "Show CIs", value=FALSE)
+          )) ,
+          column(9,
+              plotOutput("plot4"))
+
+
+          )
+
+    )
   ))
 
 ))

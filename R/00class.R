@@ -1,12 +1,14 @@
 ######################## class definitions #####################
 
 ## structure of class effectlite
+# - call
 # - user input (class input)
 # - parameter names (class parnames)
-# - generated lavaansyntax (class lavsyntax)
+# - generated syntax (class syntax)
 # - obtained results (class results)
 
 setClass("input", representation(
+  method="character", ## sem or lm to fit object
   vnames="list", ## variable names
   vlevels="list", ## variable levels (for x, k, kstar and cell)
   control="character",
@@ -22,20 +24,25 @@ setClass("input", representation(
   observed.freq="numeric", ## observed group frequencies (fixed.cell only)
   sampmeanz="array", ## manifest sample means for continuous covriates
   se="character", ## lavaan standard errors
-  bootstrap="numeric", ## number of bootstrap draws
-  mimic="character", ## lavaan's mimic option
   interactions="character", ## type of interaction (all, 2-way, no)
   complexsurvey="list",
   homoscedasticity="logical",
-  outprop="list" ## output from propensity score model
+  test.stat="character",
+  outprop="list", ## output from propensity score model
+  method_args="list" ## additional ... arguments passed to method (sem, lm)
 )
 )
 
 setClass("parnames", representation(
   alphas="array", 
   betas="array", 
-  gammas="array", 
+  gammas="array",
+  constrainedgammas="character",
+  unconstrainedgammas="character",
   gammalabels="array",
+  label.g.function="character",
+  label.covs="character",
+  label.Egx="character",
   cellmeanz="character",
   meanz="character",
   pk="character",
@@ -52,26 +59,35 @@ setClass("parnames", representation(
   Egxgx="character", ## E(gx|X=x)
   Egxgk="character", ## E(gx|K=k)
   Egxgxk="character", ## E(gx|X=x,K=k)
-  adjmeans="character"
+  adjmeans="character",
+  AveEffZ="character" ## average effect continuous covariate Z
 )
 )
 
-setClass("lavsyntax", representation(
+setClass("syntax", representation(
   model="character", 
-  hypotheses="list"
+  hypotheses="list",
+  hypothesesk="list"
 )
 )
 
 
 setClass("results", representation(
   lavresults="lavaan",
+  lmresults="lm",
+  est="numeric",
+  se="numeric",
+  vcov.def="matrix",
   hypotheses="data.frame",
+  hypothesesk="data.frame",
   Egx="data.frame",
+  AdditionalEffects="data.frame",
   Egxgx="data.frame",
   Egxgk="data.frame",
   Egxgxk="data.frame",
   gx="list",
   adjmeans="data.frame",
+  AveEffZ="data.frame",
   condeffects="data.frame"
 )
 )
@@ -81,7 +97,7 @@ setClass("effectlite", representation(
   call="call",
   input="input",
   parnames="parnames",
-  lavaansyntax="lavsyntax",
+  syntax="syntax",
   results="results"
 )
 )

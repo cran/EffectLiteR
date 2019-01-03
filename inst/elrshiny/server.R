@@ -7,7 +7,14 @@
 # library(nnet)
 # library(lavaan.survey)
 
+# options(shiny.maxRequestSize=100*1024^2) 
+
 shinyServer(function(input, output, session) {
+  
+  ## close app when browser tab is closed
+  session$onSessionEnded(function() { 
+    stopApp() 
+  })
   
   ####### New analysis / reload button ########
   output$reload <- renderUI({
@@ -32,6 +39,8 @@ shinyServer(function(input, output, session) {
         return(example02lv)
       }else if(exdata=="example_multilevel"){
         return(example_multilevel)
+      }else if(exdata=="MDRS2016"){
+        return(MDRS2016)
       }                        
     }
     
@@ -59,12 +68,21 @@ shinyServer(function(input, output, session) {
     x <- input$variablex
     
     k <- NULL; if(length(input$variablek) != 0){k <- input$variablek}
-    fixed.cell <- FALSE; fixed.z <- FALSE
-    if(input$fixed.cell == "fixed"){fixed.cell <- TRUE}
-    if(input$fixed.cell == "fixed+e"){fixed.cell <- TRUE; fixed.z=TRUE}
+    
+    ## sampling model
+    if(input$fixed.cell == "default"){
+      fixed.cell <- "default"
+      fixed.z <- "default"
+    }else{
+      fixed.cell <- FALSE
+      fixed.z <- FALSE
+      if(input$fixed.cell == "fixed"){fixed.cell <- TRUE}
+      if(input$fixed.cell == "fixed+e"){fixed.cell <- TRUE; fixed.z=TRUE} 
+    }
+    
     
     z <- NULL; if(length(input$variablez) != 0){z <- input$variablez}
-    if(input$latentz & input$nlatentz > 0){z <- c(z,latentcov())}
+    if(isLatentCovs()){z <- c(z,latentcov())}
     
     propscore <- NULL 
     if(length(input$propscore) != 0 & !input$propscoreformula){
@@ -81,6 +99,10 @@ shinyServer(function(input, output, session) {
     if(input$weights != ""){weights <- as.formula(paste0(" ~ ", input$weights))}
     
     homoscedasticity <- input$homoscedasticity
+    if(homoscedasticity=="homoscedastic"){homoscedasticity <- TRUE}
+    if(homoscedasticity=="heteroscedastic"){homoscedasticity <- FALSE}
+    
+    test.stat <- input$test.stat
     
     if(input$add.syntax == ""){
       add <- character()
@@ -88,28 +110,38 @@ shinyServer(function(input, output, session) {
       add <- input$add.syntax
     }
     
+    elr.args <- list(y=dv, 
+                     x=x,
+                     k=k,
+                     z=z,
+                     data=d,
+                     method=input$method,
+                     control=input$control,
+                     measurement=mm,
+                     missing=input$missing,
+                     se=input$se,
+                     bootstrap=input$bootstrap,
+                     fixed.cell=fixed.cell,
+                     fixed.z=fixed.z,
+                     interactions=interactions,
+                     homoscedasticity=homoscedasticity,
+                     test.stat=test.stat,
+                     propscore=propscore,                 
+                     ids=ids,
+                     weights=weights,
+                     add=add)
+
     tryCatch(
-      effectLite(y=dv, 
-                 x=x,
-                 k=k,
-                 z=z,
-                 data=d,
-                 control=input$control,
-                 measurement=mm,
-                 missing=input$missing,
-                 se=input$se,
-                 bootstrap=input$bootstrap,
-                 fixed.cell=fixed.cell,
-                 fixed.z=fixed.z,
-                 interactions=interactions,
-                 propscore=propscore,                 
-                 ids=ids,
-                 weights=weights,
-                 homoscedasticity=homoscedasticity,
-                 add=add)
+      do.call("effectLite", elr.args)
     )  
   })
-
+  
+  ######## Reactive latent covariates ########
+  isLatentCovs <- reactive({
+    
+    input$latentz && !is.na(input$nlatentz) && input$nlatentz>0 && input$nlatentz<11
+  })
+  
   
   ######## Reactive zselect for Plot 2 ########
   zSelect <- reactive({
@@ -144,9 +176,11 @@ shinyServer(function(input, output, session) {
     if(!is.null(input$variablek)){kstar <- "K"}
     zselect <- c(input$variablez, input$variablek, kstar, input$variablex)
     
-    if(input$latentz & input$nlatentz > 0){
+    if(isLatentCovs()){
       nameslatentz <- c(input$name.etaz1, input$name.etaz2, input$name.etaz3,
-                        input$name.etaz4, input$name.etaz5)
+                        input$name.etaz4, input$name.etaz5, input$name.etaz6, 
+                        input$name.etaz7, input$name.etaz8, input$name.etaz9, 
+                        input$name.etaz10)
       nameslatentz <- nameslatentz[1:input$nlatentz]
       zselect <- c(nameslatentz, zselect)
     }
@@ -179,6 +213,15 @@ shinyServer(function(input, output, session) {
     if(!is.null(input$variablek)){kstar <- "K"}
     zselect3 <- c("", input$variablek, kstar, input$variablex, input$variablez)
     
+    if(isLatentCovs()){
+      nameslatentz <- c(input$name.etaz1, input$name.etaz2, input$name.etaz3,
+                        input$name.etaz4, input$name.etaz5, input$name.etaz6, 
+                        input$name.etaz7, input$name.etaz8, input$name.etaz9, 
+                        input$name.etaz10)
+      nameslatentz <- nameslatentz[1:input$nlatentz]
+      zselect3 <- c(nameslatentz, zselect3)
+    }
+    
     d <- dataInput()
     x <- d[[input$variablex]]    
     ng <- length(unique(x))
@@ -199,14 +242,112 @@ shinyServer(function(input, output, session) {
     
     return(zselect3)
   })
+
   
+  ######## Reactive wselect for Conditional Effects IV ########
+  wSelect <- reactive({
+    
+    d <- dataInput()
+    wselect <- c("", names(d))
+    
+    if(isLatentCovs()){
+      nameslatentz <- c(input$name.etaz1, input$name.etaz2, input$name.etaz3,
+                        input$name.etaz4, input$name.etaz5, input$name.etaz6, 
+                        input$name.etaz7, input$name.etaz8, input$name.etaz9, 
+                        input$name.etaz10)
+      nameslatentz <- nameslatentz[1:input$nlatentz]
+      wselect <- c(wselect, nameslatentz)
+    }
+    
+    return(wselect)
+  })
+  
+  
+  ######## Reactive gxselect2 for Plot 4 ########
+  gxSelect2 <- reactive({
+
+    d <- dataInput()
+    x <- d[[input$variablex]]
+    ng <- length(unique(x))
+    res <- paste0("g",2:ng-1)
+
+    return(res)
+  })
+
+
+  ######## Reactive zselect3 (colour) for Plot 4 ########
+  zSelect4 <- reactive({
+    kstar <- NULL
+    if(!is.null(input$variablek)){kstar <- "K"}
+    zselect4 <- c("", input$variablek, kstar, input$variablex, input$variablez)
+    
+    if(isLatentCovs()){
+      nameslatentz <- c(input$name.etaz1, input$name.etaz2, input$name.etaz3,
+                        input$name.etaz4, input$name.etaz5, input$name.etaz6, 
+                        input$name.etaz7, input$name.etaz8, input$name.etaz9, 
+                        input$name.etaz10)
+      nameslatentz <- nameslatentz[1:input$nlatentz]
+      zselect4 <- c(nameslatentz, zselect4)
+    }
+
+    d <- dataInput()
+    x <- d[[input$variablex]]
+    ng <- length(unique(x))
+
+    if(!is.null(input$propscore)){
+      zselect4 <- c(zselect4, input$propscore)
+      zselect4 <- c(zselect4, paste0("logprop",1:(ng-1)))
+    }
+    if(input$prop.formula != "" & input$propscoreformula){
+      try({
+        propscore <- as.formula(input$prop.formula)
+        zselect4 <- c(zselect4, all.vars(propscore[[3]]))
+      }, silent=TRUE)
+      zselect4 <- c(zselect4, paste0("logprop",1:(ng-1)))
+    }
+
+    zselect4 <- c(zselect4, paste0("g",1:(ng-1)))
+
+    return(zselect4)
+  })
+  
+
+  ######## Reactive zselect5 user specified tests ########
+  zSelect5 <- reactive({
+    
+    zselect5 <- c("", input$variablez)
+    
+    if(isLatentCovs()){
+      nameslatentz <- c(input$name.etaz1, input$name.etaz2, input$name.etaz3,
+                        input$name.etaz4, input$name.etaz5, input$name.etaz6, 
+                        input$name.etaz7, input$name.etaz8, input$name.etaz9, 
+                        input$name.etaz10)
+      nameslatentz <- nameslatentz[1:input$nlatentz]
+      zselect5 <- c(nameslatentz, zselect5)
+    }
+    
+    d <- dataInput()
+    x <- d[[input$variablex]]
+    ng <- length(unique(x))
+    
+    if(!is.null(input$propscore)){
+      zselect5 <- c(zselect5, paste0("logprop",1:(ng-1)))
+    }
+    if(input$prop.formula != "" & input$propscoreformula){
+      zselect5 <- c(zselect5, paste0("logprop",1:(ng-1)))
+    }
+    
+    return(zselect5)
+  })
+  
+      
   
   ######## Reactive measurement model ########
   mm <- reactive({
-    if(!input$latenty & !input$latentz){
+    if(!input$latenty && !isLatentCovs()){
       return(character())
       
-    }else if(input$latenty | input$nlatentz > 0){
+    }else if(input$latenty || isLatentCovs()){
       
       ## determine number of cells
       d <- dataInput()
@@ -254,6 +395,31 @@ shinyServer(function(input, output, session) {
         indicators$indicatorsz5 <- input$indicatorsz5
         mmodel$mm.etaz5 <- input$mm.etaz5
       }
+      if(input$latentz & input$nlatentz > 5){
+        names$etaz6 <- input$name.etaz6
+        indicators$indicatorsz6 <- input$indicatorsz6
+        mmodel$mm.etaz6 <- input$mm.etaz6
+      }
+      if(input$latentz & input$nlatentz > 6){
+        names$etaz7 <- input$name.etaz7
+        indicators$indicatorsz7 <- input$indicatorsz7
+        mmodel$mm.etaz7 <- input$mm.etaz7
+      }
+      if(input$latentz & input$nlatentz > 7){
+        names$etaz8 <- input$name.etaz8
+        indicators$indicatorsz8 <- input$indicatorsz8
+        mmodel$mm.etaz8 <- input$mm.etaz8
+      }
+      if(input$latentz & input$nlatentz > 8){
+        names$etaz9 <- input$name.etaz9
+        indicators$indicatorsz9 <- input$indicatorsz9
+        mmodel$mm.etaz9 <- input$mm.etaz9
+      }
+      if(input$latentz & input$nlatentz > 9){
+        names$etaz10 <- input$name.etaz10
+        indicators$indicatorsz10 <- input$indicatorsz10
+        mmodel$mm.etaz10 <- input$mm.etaz10
+      }
       
       names <- unlist(names)
       mmodel <- unlist(mmodel)
@@ -287,13 +453,18 @@ shinyServer(function(input, output, session) {
   ###### Reactive latent covariates ###########
   latentcov <- reactive({
     
-    if(input$latentz == TRUE & input$nlatentz > 0){
+    if(isLatentCovs()){
         
       nameslatentcov <- NULL; nameslatentcov$etaz1 <- input$name.etaz1
       if(input$nlatentz > 1){nameslatentcov$etaz2 <- input$name.etaz2}
       if(input$nlatentz > 2){nameslatentcov$etaz3 <- input$name.etaz3}
       if(input$nlatentz > 3){nameslatentcov$etaz4 <- input$name.etaz4}
       if(input$nlatentz > 4){nameslatentcov$etaz5 <- input$name.etaz5}
+      if(input$nlatentz > 5){nameslatentcov$etaz6 <- input$name.etaz6}
+      if(input$nlatentz > 6){nameslatentcov$etaz7 <- input$name.etaz7}
+      if(input$nlatentz > 7){nameslatentcov$etaz8 <- input$name.etaz8}
+      if(input$nlatentz > 8){nameslatentcov$etaz9 <- input$name.etaz9}
+      if(input$nlatentz > 9){nameslatentcov$etaz10 <- input$name.etaz10}
       
       nameslatentcov <- unlist(nameslatentcov)
       return(nameslatentcov)
@@ -302,7 +473,52 @@ shinyServer(function(input, output, session) {
       return(NULL)
       
     }
-  })  
+  })
+  
+  ###### Reactive subset for aggregated effects ###########
+  agg.subset <- reactive({
+    
+    m1 <- model()
+    vnamesk <- m1@input@vnames$k
+    vnamesz <- m1@input@vnames$z
+    vnamesx <- m1@input@vnames$x
+    numberks <- length(vnamesk)
+    numberzs <- length(vnamesz)
+    covnames <- c(vnamesk,vnamesz,vnamesx)
+    
+    valuesk <- list()
+    valuesz <- list()
+    
+    if(numberks>0){
+      for(i in 1:numberks){
+        valuesk <- c(valuesk, input[[paste0('aggvalk',i)]])
+      }}
+    
+    if(numberzs>0){
+      for(i in 1:numberzs){
+        valuesz <- c(valuesz, input[[paste0('aggvalz',i)]])
+      }}
+    
+    valuesx <- input[['xaggeff']]
+    
+    newdata <- data.frame(c(valuesk, valuesz, valuesx))
+    
+    nrowsagg <- input$nrowsagg
+    if(is.null(nrowsagg)){nrowsagg <- 10} ## weird error handling
+    
+    if(nrow(newdata) > 0){
+      newdata[newdata == "NA"] <- NA ## input somehow converts NA to "NA"
+      names(newdata) <- covnames
+      agg.subset <- autoSelectSubset(obj=m1, newdata=newdata, nsub=nrowsagg)
+      
+    }else{
+      agg.subset <- 1:nrow(m1@input@data)
+      
+    }
+    
+    return(agg.subset)
+    
+  })
   
   
   ###### Update Variable Selectors UI ########
@@ -340,8 +556,14 @@ shinyServer(function(input, output, session) {
     updateSelectInput(session, "indicatorsz3", choices = names(d))
     updateSelectInput(session, "indicatorsz4", choices = names(d))
     updateSelectInput(session, "indicatorsz5", choices = names(d))
+    updateSelectInput(session, "indicatorsz6", choices = names(d))
+    updateSelectInput(session, "indicatorsz7", choices = names(d))
+    updateSelectInput(session, "indicatorsz8", choices = names(d))
+    updateSelectInput(session, "indicatorsz9", choices = names(d))
+    updateSelectInput(session, "indicatorsz10", choices = names(d))
   })
 
+  
 
   ###### Update zselect for Plot 2 ########
   observe({
@@ -350,6 +572,23 @@ shinyServer(function(input, output, session) {
                     choices = zsel)  
   })
 
+  ###### Update zselect for continuous covariate tests ########
+  observe({
+    zsel <- zSelect5()
+    updateSelectInput(session, "subconcov", 
+                      choices = zsel)  
+  })
+  
+
+  ###### Update gxselectce4 for Conditional Effects 4 ########
+  observe({
+    gxsel <- gxSelect()
+    updateSelectInput(session, "gxselectce4", 
+                      choices = gxsel)  
+  })
+  
+    
+  
   ###### Update gxselect for Plot 3 ########
   observe({
     gxsel <- gxSelect()
@@ -370,6 +609,29 @@ shinyServer(function(input, output, session) {
     zsel3 <- zSelect3()
     updateSelectInput(session, "zselect3", 
                       choices = zsel3)  
+  })
+  
+  ###### Update variablece4 for Conditional Effects IV ########
+  observe({
+    
+    wselect <- wSelect()
+    updateSelectInput(session, "variablece4", 
+                      choices = wselect)  
+  })
+  
+
+  ###### Update gxselect2 for Plot 4 ########
+  observe({
+    gxsel2 <- gxSelect2()
+    updateSelectInput(session, "gxselect2",
+                      choices = gxsel2)
+  })
+
+  ###### Update zselect4 for Plot 4 ########
+  observe({
+    zsel4 <- zSelect4()
+    updateSelectInput(session, "zselect4",
+                      choices = zsel4)
   })
   
   ###### Update Control Group UI ########
@@ -523,36 +785,52 @@ shinyServer(function(input, output, session) {
     }else{
       
       m1 <- model()
-      condeffects <- m1@results@condeffects
-      yselected <- round(condeffects[[input$gxselect]],4)    
-      zselected <- condeffects[[input$zselect2]]
-      colourselected <- condeffects[[input$zselect3]]
-              
-      g1label <- "(K,Z)"
-      if(length(input$variablek) == 0){g1label <- "(Z)"}
-      
-      p <- ggplot2::qplot(y=yselected, x=zselected, 
-                 data=condeffects,
-                 ylab=paste0(input$gxselect,g1label),
-                 xlab=input$zselect2,                 
-                 main=paste0("Estimated regression of ",
-                             paste0(input$gxselect,g1label), " on ", 
-                             input$zselect2))
-      p <- p + ggplot2::geom_smooth(method="loess")
-      if(is.null(colourselected)){
-        p <- p + ggplot2::geom_point(size=2.5)
-      }else{
-        p <- p + ggplot2::geom_point(ggplot2::aes(colour=colourselected),size=2.5)
-        p <- p + ggplot2::guides(colour = ggplot2::guide_legend(input$zselect3))         }    
-      p <- p + ggplot2::theme_bw()
-      
-      print(p)
-      
+      conditionalEffectsPlot(m1,
+                             zsel=input$zselect2, 
+                             colour=input$zselect3, 
+                             gxsel=input$gxselect, 
+                             show.ci=input$show.ci,
+                             regression=input$regline,
+                             regression.ci=input$show.cir)
+
     }
     
   })
 
+
   
+  ###### Output Plot 4 #########
+  output$helptextplot4 <- renderPrint({
+    if((input$variabley == "" & !input$latenty) || input$variablex == ""){
+
+      cat("Plot 4 is only shown if you have specified the dependent variable and the treatment variable.")
+
+    }else{
+
+      cat("Plot 4 shows the estimated conditional effects in the sample.")
+    }
+  })
+
+  output$plot4 <- renderPlot({
+
+    if((input$variabley == "" & !input$latenty) || input$variablex == ""){
+      return(NULL)
+    }else{
+
+      m1 <- model()
+      conditionalEffectsPlot(m1,
+                             zsel="id",
+                             colour=input$zselect4,
+                             gxsel=input$gxselect2,
+                             show.ci=input$show.ci2)
+
+    }
+
+  })
+  
+  
+  
+    
   ###### Output EffectLiteR Summary #########
   output$summary <- renderPrint({
     
@@ -586,14 +864,21 @@ shinyServer(function(input, output, session) {
                          "\")")
       }
       
-      fixed.cell <- FALSE; fixed.z <- FALSE
-      if(input$fixed.cell == "fixed"){fixed.cell <- TRUE}
-      if(input$fixed.cell == "fixed+e"){fixed.cell <- TRUE; fixed.z=TRUE}
+      printfixedcell <- paste0("fixed.cell=\"", "default", "\"")
+      if(input$fixed.cell == "stochastic"){printfixedcell <- "fixed.cell=FALSE"}
+      if(input$fixed.cell == "fixed"){printfixedcell <- "fixed.cell=TRUE"}
+      if(input$fixed.cell == "fixed+e"){printfixedcell <- "fixed.cell=TRUE"}
+      
+      printfixedz <- paste0("fixed.z=\"", "default", "\"")
+      if(input$fixed.cell == "stochastic"){printfixedz <- "fixed.z=FALSE"}
+      if(input$fixed.cell == "fixed"){printfixedz <- "fixed.z=FALSE"}
+      if(input$fixed.cell == "fixed+e"){printfixedz <- "fixed.z=TRUE"}
+      
       
       z <- NULL
       printz <- "NULL"
       if(length(input$variablez) != 0){z <- input$variablez}
-      if(input$latentz & input$nlatentz > 0){z <- c(z,latentcov())}
+      if(isLatentCovs()){z <- c(z,latentcov())}
       if(!is.null(z)){
         printz <- paste0("c(\"",
                          paste(z, collapse="\",\""), 
@@ -625,6 +910,7 @@ shinyServer(function(input, output, session) {
         }
       
       homoscedasticity <- input$homoscedasticity
+      test.stat <- input$test.stat
       
       printadd <- "character()"
       if(input$add.syntax != ""){printadd <- "add"}
@@ -640,22 +926,24 @@ shinyServer(function(input, output, session) {
                     "k=", printk, ", ",
                     "z=", printz, ", ",
                     "data=data, ",
+                    "method=\"", input$method, "\", ",
                     "control=\"", input$control, "\", ",
                     "measurement=", printmm, ", ",
                     "missing=\"", input$missing, "\", ",
                     "se=\"", input$se, "\", ",
                     printbootstrap,
-                    "fixed.cell=", fixed.cell, ", ",
-                    "fixed.z=", fixed.z, ", ",
+                    printfixedcell, ", ",
+                    printfixedz, ", ",
                     "interactions=\"", interactions, "\", ",
+                    "homoscedasticity=\"", homoscedasticity, "\", ",
+                    "test.stat=\"", test.stat, "\", ",
                     "propscore=", printpropscore, ", ",
                     "ids=", printids, ", ",
                     "weights=", printweights, ", ",
-                    "homoscedasticity=", homoscedasticity, ", ",
                     "add=", printadd,
                     ")")
       
-      cat(tmp)  
+      cat(tmp)
     }  
   })
   
@@ -683,7 +971,7 @@ shinyServer(function(input, output, session) {
                   "data=data, ", 
                   "fixed.x=", m1@input@fixed.z, ", ",
                   "group.w.free=", !m1@input@fixed.cell, ", ",
-                  "mimic=\"", "mplus", "\") ")
+                  "mimic=\"", "lavaan", "\") ")
       cat(tmp, "\n")  
     }  
   })
@@ -696,7 +984,7 @@ shinyServer(function(input, output, session) {
       cat("")
     }else{
       m1 <- model()
-      cat(m1@lavaansyntax@model)  
+      cat(m1@syntax@model)  
     }  
   })
   
@@ -711,10 +999,85 @@ shinyServer(function(input, output, session) {
     }else{
           
       m1 <- model()
-      summary(m1@results@lavresults, fit.measures=TRUE)  
+      
+      if(input$method == "sem"){
+        summary(m1@results@lavresults, fit.measures=TRUE)  
+        
+      }else if(input$method == "lm"){
+        summary(m1@results@lmresults)  
+      }
+      
       ## maybe there was a reason I set fit.measures=FALSE in prior versions...
     }  
   })
+
+  ###### Output User Specified Effects #########
+  output$covtests <- renderPrint({      
+    
+    if(input$variabley == "" & input$latenty == FALSE || input$variablex == ""){            
+      
+      cat("Please specify the outcome variable and the treatment variable")
+      
+    }else if(length(input$subconcov) == 0){
+      
+      cat("No subset of continuous covariates specified")
+      
+    }else{
+      
+      m1 <- model()
+      covariatetests <- EffectLiteR:::elrTestCausalityConditions(m1, input$subconcov)
+      print(covariatetests, digits=3, print.gap=3)
+      
+    }  
+  })
+  
+  
+  
+  ###### Output User Specified Effects #########
+  output$addeffects <- renderPrint({      
+    
+    if(input$variabley == "" & input$latenty == FALSE || input$variablex == ""){            
+      
+      cat("Please specify the outcome variable and the treatment variable")
+      
+    }else if(input$add.syntax == ""){
+      
+      cat("No user-defined parameters specified")
+      
+    }else{
+      
+      m1 <- model()
+      AdditionalEffects <- m1@results@AdditionalEffects
+      print(AdditionalEffects, digits=3, print.gap=3)
+      
+    }  
+  })
+  
+    
+  
+  ###### Output User Specified Wald Test #########
+  output$waldtest <- renderPrint({      
+    
+    if(input$variabley == "" & input$latenty == FALSE || input$variablex == ""){            
+      
+      cat("Please specify the outcome variable and the treatment variable")
+      
+    }else if(input$add.syntax.wald == ""){
+      
+      cat("No user-defined Wald test specified")
+      
+    }else{
+      
+      m1 <- model()
+      con <- input$add.syntax.wald
+      wtest <- data.frame(lavTestWald(m1@results@lavresults, con)[1:3])  
+      row.names(wtest) <- "User-Specified Wald Test"  
+      names(wtest) <- c("Wald Chi-Square", "df", "p-value")
+      print(wtest, digits=3, print.gap=3)
+
+    }  
+  })
+  
   
   
   ###### Download Data (Conditional Effects Table) #######
@@ -741,7 +1104,7 @@ shinyServer(function(input, output, session) {
     }
   )
   
-  ##### Conditional effects II
+  ##### Conditional effects II User Interface ######
   output$ui <- renderUI({
     
     m1 <- model()
@@ -760,7 +1123,7 @@ shinyServer(function(input, output, session) {
     for(i in 1:numberks){
       uilist[[i]] <- selectInput(inputId = paste0('valk',i), 
                                  label = vnamesk[i], 
-                                 choices = vlevelsk[i],
+                                 choices = vlevelsk[[i]],
                                  width='90%')
     }}
     
@@ -777,7 +1140,7 @@ shinyServer(function(input, output, session) {
   })
   
   
-  ## help text conditional effects 2
+  #### Help text conditional effects 2 #####
   output$helptextcondeffects2 <- renderPrint({
     if((input$variabley == "" & !input$latenty) || input$variablex == "" ){
       
@@ -790,7 +1153,7 @@ shinyServer(function(input, output, session) {
   })
   
   
-  ## output conditional effects 2
+  #### output conditional effects 2 #####
   output$outputcondeffect2 <- renderPrint({
     
     m1 <- model()
@@ -822,7 +1185,194 @@ shinyServer(function(input, output, session) {
     
   })
   
+
+  #### output descriptive stats for conditional effects 2 #####
+  output$descriptivestats <- renderPrint({
+    
+    m1 <- model()
+    vnamesz <- m1@input@vnames$z
+    numberzs <- length(vnamesz)
+
+    if(numberzs==0){
+      print("No continuous covariates in the model")
+      
+    }else if(numberzs>0){
+      print(EffectLiteR:::elr_compute_descriptives_z(m1))
+      
+    }
+    
+  })
   
+  
+  #### Help text conditional effects 4 #####
+  output$helptextcondeff4 <- renderPrint({
+    if((input$variabley == "" & !input$latenty) || input$variablex == "" ){
+      
+      cat("Conditional effects are only available if you have specified the dependent variable and the treatment variable.")
+      
+    }else{
+      
+      cat("Computes the regression of the selected effect function gx on the variable W. If you want standard errors for the regression coefficients, please specify the number of bootstrap draws. This may take a while to compute.")
+    }
+  })
+  
+    
+  
+  ##### Aggregated effects User Interface Covariates ######
+  output$uiaggeff <- renderUI({
+    
+    m1 <- model()
+    condeffects <- m1@results@condeffects
+    vnamesk <- m1@input@vnames$k
+    vlevelsk <- m1@input@vlevels$levels.k.original
+    vnamesz <- m1@input@vnames$z
+    numberks <- length(vnamesk)
+    numberzs <- length(vnamesz)
+    covnames <- c(vnamesk,vnamesz)
+    uilist <- vector("list", length(covnames))
+    
+    if(numberks==0 & numberzs==0){return(NULL)}
+    
+    if(numberks>0){
+      for(i in 1:numberks){
+        uilist[[i]] <- selectInput(inputId = paste0('aggvalk',i), 
+                                   label = vnamesk[i], 
+                                   choices = c(NA,vlevelsk[[i]]),
+                                   width='90%')
+      }}
+    
+    if(numberzs>0){
+      for(i in 1:numberzs){
+        uilist[[numberks+i]] <- numericInput(inputId = paste0('aggvalz',i),
+                                             label = vnamesz[i],
+                                             value = NA,
+                                             width='90%')
+      }}
+    
+    uilist
+    
+  })
+  
+  #### Aggregated effects User Interface Treatment ######
+  output$uiaggeff2 <- renderUI({
+    
+    m1 <- model()
+    vnamesx <- m1@input@vnames$x
+    vlevelsx <- m1@input@vlevels$levels.x.original
+    uilist <- vector("list", length=1)
+    
+    uilist[[1]] <- selectInput(inputId = "xaggeff", 
+                               label = vnamesx, 
+                               choices = c(NA,vlevelsx),
+                               width='90%')
+    
+    uilist
+    
+  })
+
+  #### Aggregated effects User Interface Number Rows ######
+  output$uiaggeff3 <- renderUI({
+    
+    
+    m1 <- model()
+    vnamesz <- m1@input@vnames$z
+    numberzs <- length(vnamesz)
+
+    valuesz <- list()
+    if(numberzs>0){
+      for(i in 1:numberzs){
+        valuesz <- c(valuesz, input[[paste0('aggvalz',i)]])
+      }}
+    
+    if(all(is.na(valuesz))){
+      
+      return(NULL)
+      
+    }else{
+      
+      uilist <- vector("list", length=1)
+      
+      uilist[[1]] <- numericInput("nrowsagg", 
+                                  label="Number of rows",
+                                  value=10,
+                                  min = 0, 
+                                  max = 5, 
+                                  width='30%')
+      
+      return(uilist)
+    }
+    
+  })
+  
+    
+  
+  #### Help text conditional effects 2 #####
+  output$helptextaggeff <- renderPrint({
+    if((input$variabley == "" & !input$latenty) || input$variablex == "" ){
+      
+      cat("Aggregated effects are only available if you have specified the dependent variable and the treatment variable.")
+      
+    }else{
+      
+      cat("Aggregated effects for user specified values of categorical and continuous covariates.")
+    }
+  })
+  
+  
+  #### output aggregated effects #####
+  output$outputaggeff <- renderPrint({
+    
+    m1 <- model()
+    agg.subset <- agg.subset()
+      
+    try({aggeff <- round(computeAggregatedEffects(m1, agg.subset),3)}, silent=TRUE)
+    try({print(aggeff, row.names=F, print.gap=3)}, silent=TRUE)
+    
+  })
+  
+  #### output aggregated effects table ####
+  output$aggeffstable = renderDataTable({
+    if((input$variabley == "" & !input$latenty) || input$variablex == "" ){
+      return(NULL)
+    }else{            
+      m1 <- model()
+      idx <- agg.subset()
+      condprint <- format(m1@results@condeffects[idx,], digits=3)
+      condprint
+    }  
+  })
+
+  
+  #### output conditional effects IV #####
+  output$outputcondeff4 <- renderPrint({
+    
+    m1 <- model()
+    d <- dataInput()
+    nboot <- input$bootstrapce4
+    gx <- input$gxselectce4
+    w <- input$variablece4
+    
+    if(w == ""){return(NULL)}
+    
+    formula <- paste0(gx, " ~ ", w)
+    formula <- as.formula(formula)
+    
+    try({aggeff <- round(EffectLiteR:::elrCondeffectsBoot(d, m1, formula, nboot),3)}, silent=FALSE)
+    try({print(aggeff, row.names=T, print.gap=3)}, silent=FALSE)
+    
+  })
+  
+  #### output aggregated effects table ####
+  output$aggeffstable = renderDataTable({
+    if((input$variabley == "" & !input$latenty) || input$variablex == "" ){
+      return(NULL)
+    }else{            
+      m1 <- model()
+      idx <- agg.subset()
+      condprint <- format(m1@results@condeffects[idx,], digits=3)
+      condprint
+    }  
+  })    
     
   
 })
