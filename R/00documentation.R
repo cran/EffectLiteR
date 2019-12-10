@@ -112,6 +112,43 @@ NULL
 NULL
 
 
+#' Dataset sophonet_data_simulated.
+#' 
+#' A simulated dataset based on the SOPHONET-study (Leichsenring et al., 2013). The variables are:
+#' 
+#' \itemize{
+#'   \item lsas.a.t2 
+#'   \item lsas.v.t2 
+#'   \item lsas.a.t1 
+#'   \item lsas.v.t1 
+#'   \item bdi.t1.i1 
+#'   \item bdi.t1.i2 
+#'   \item bdi.t1.i3 
+#'   \item ecr.anx.t1.i1 
+#'   \item ecr.anx.t1.i2 
+#'   \item ecr.anx.t1.i3 
+#'   \item ecr.avoi.t1.i1 
+#'   \item ecr.avoi.t1.i2 
+#'   \item ecr.avoi.t1.i3 
+#'   \item tpq.ha.i1 
+#'   \item tpq.ha.i2 
+#'   \item tpq.ha.i3 
+#'   \item tosca.shame.t1.i1 
+#'   \item tosca.shame.t1.i2 
+#'   \item fskn.se.t1.i1 
+#'   \item fskn.se.t1.i2 
+#'   \item comorbid 
+#'   \item iip.lov 
+#'   \item iip.dom tb
+#' }
+#' 
+#' @docType data
+#' @keywords datasets
+#' @references Leichsenring, F., Salzer, S., Beutel, M. E., Herpertz, S., Hiller, W., Hoyer, J., Huesing, J., ..., Leibing, E. (2013). Psychodynamic therapy and cognitive-behavioral therapy in social anxiety disorder: A multicenter randomized controlled trial. American Journal of Psychiatry, 170, 759–767.
+#' @format A data frame with 328 rows and 24 variables.
+#' @name sophonet_data_simulated
+NULL
+
 
 
 ############## namespace ###########
