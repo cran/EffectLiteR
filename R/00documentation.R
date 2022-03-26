@@ -3,6 +3,10 @@
 ############# documentation ###############
 
 #' EffectLiteR
+#' 
+#' Use structural equation modeling to estimate average and conditional effects 
+#' of a treatment variable on an outcome variable, taking into account multiple
+#' continuous and categorical covariates.
 #'
 #' @name EffectLiteR
 #' @docType package
@@ -150,6 +154,54 @@ NULL
 NULL
 
 
+#' Dataset elrdata_categorical_items.
+#' 
+#' A simulated dataset for testing measurement models with categorical items:
+#' 
+#' \itemize{
+#'   \item x. Treatment variable with values 0, 1.
+#'   \item z11. indicator for covariate.
+#'   \item z21. indicator for covariate.
+#'   \item z31. indicator for covariate.
+#'   \item z41. indicator for covariate.
+#'   \item z51. indicator for covariate.
+#'   \item y11. indicator for outcome.
+#'   \item y21. indicator for outcome.
+#'   \item y31. indicator for outcome.
+#'   \item y41. indicator for outcome.
+#'   \item y51. indicator for outcome.
+#'   \item y61. indicator for outcome.
+#'   \item y71. indicator for outcome.
+#' }
+#' 
+#' @docType data
+#' @keywords datasets
+#' @format A data frame with 10000 rows and 13 variables.
+#' @name elrdata_categorical_items
+NULL
+
+
+
+#' Dataset elrdata_logreg.
+#' 
+#' A simulated dataset for testing logistic regression:
+#' 
+#' \itemize{
+#'   \item y. Outcome variable with values 0, 1.
+#'   \item x. Treatment variable with values 0, 1.
+#'   \item z1. continuous covariate.
+#'   \item z2. continuous covariate.
+#'   \item k1. categorical covariate.
+#'   \item k2. categorical covariate.
+#' }
+#' 
+#' @docType data
+#' @keywords datasets
+#' @format A data frame with 10000 rows and 6 variables.
+#' @name elrdata_logreg
+NULL
+
+
 
 ############## namespace ###########
 
@@ -159,7 +211,7 @@ NULL
 #' @importMethodsFrom methods show 
 NULL
 
-#' @importFrom stats as.formula ftable model.frame model.matrix pnorm relevel var qnorm cov lm mahalanobis pchisq pf pt sd
+#' @importFrom stats as.formula ftable model.frame model.matrix pnorm relevel var qnorm cov lm mahalanobis pchisq pf pt sd na.omit
 NULL
 
 #' @importFrom utils capture.output read.csv read.csv2 read.table combn

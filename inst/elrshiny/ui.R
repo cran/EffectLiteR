@@ -19,7 +19,8 @@ shinyUI(fluidPage(
         selectizeInput(inputId="exdata", label="Example Data", selected="",
                        choices= c("","nonortho","example01","example02lv",
                                   "example_multilevel", "MDRS2016", 
-                                  "sophonet_data_simulated"),
+                                  "sophonet_data_simulated",
+                                  "elrdata_categorical_items"),
                        options = list(placeholder = 'choose example data'),
                        width='50%'),    
         # hr(),
@@ -296,7 +297,9 @@ br()
               choices = c("default" = "default",
                           "equivalent measures" = "parallel",
                           "essentially equivalent measures" = "tau-equi",
-                          "congeneric measures" = "tau-cong"),
+                          "congeneric measures" = "tau-cong",
+                          "essentially equivalent measures categorical" = "tau-equi-categorical",
+                          "congeneric measures categorical" = "tau-cong-categorical"),
               width='100%')
           ),
           ### Cov 1
@@ -308,7 +311,9 @@ br()
               choices = c("default" = "default",
                           "equivalent measures" = "parallel",
                           "essentially equivalent measures" = "tau-equi",
-                          "congeneric measures" = "tau-cong"),
+                          "congeneric measures" = "tau-cong",
+                          "essentially equivalent measures categorical" = "tau-equi-categorical",
+                          "congeneric measures categorical" = "tau-cong-categorical"),
               width='100%')
           ),
           ### Cov 2
@@ -320,7 +325,9 @@ br()
               choices = c("default" = "default",
                           "equivalent measures" = "parallel",
                           "essentially equivalent measures" = "tau-equi",
-                          "congeneric measures" = "tau-cong"),
+                          "congeneric measures" = "tau-cong",
+                          "essentially equivalent measures categorical" = "tau-equi-categorical",
+                          "congeneric measures categorical" = "tau-cong-categorical"),
               width='100%')
           ),  
           ### Cov 3
@@ -332,7 +339,9 @@ br()
               choices = c("default" = "default",
                           "equivalent measures" = "parallel",
                           "essentially equivalent measures" = "tau-equi",
-                          "congeneric measures" = "tau-cong"),
+                          "congeneric measures" = "tau-cong",
+                          "essentially equivalent measures categorical" = "tau-equi-categorical",
+                          "congeneric measures categorical" = "tau-cong-categorical"),
               width='100%')
           ),  
           ### Cov 4
@@ -344,7 +353,9 @@ br()
               choices = c("default" = "default",
                           "equivalent measures" = "parallel",
                           "essentially equivalent measures" = "tau-equi",
-                          "congeneric measures" = "tau-cong"),
+                          "congeneric measures" = "tau-cong",
+                          "essentially equivalent measures categorical" = "tau-equi-categorical",
+                          "congeneric measures categorical" = "tau-cong-categorical"),
               width='100%')
           ),  
           ### Cov 5
@@ -356,7 +367,9 @@ br()
               choices = c("default" = "default",
                           "equivalent measures" = "parallel",
                           "essentially equivalent measures" = "tau-equi",
-                          "congeneric measures" = "tau-cong"),
+                          "congeneric measures" = "tau-cong",
+                          "essentially equivalent measures categorical" = "tau-equi-categorical",
+                          "congeneric measures categorical" = "tau-cong-categorical"),
               width='100%')
           ),
           ### Cov 6
@@ -368,7 +381,9 @@ br()
               choices = c("default" = "default",
                           "equivalent measures" = "parallel",
                           "essentially equivalent measures" = "tau-equi",
-                          "congeneric measures" = "tau-cong"),
+                          "congeneric measures" = "tau-cong",
+                          "essentially equivalent measures categorical" = "tau-equi-categorical",
+                          "congeneric measures categorical" = "tau-cong-categorical"),
               width='100%')
           ),
           ### Cov 7
@@ -380,7 +395,9 @@ br()
               choices = c("default" = "default",
                           "equivalent measures" = "parallel",
                           "essentially equivalent measures" = "tau-equi",
-                          "congeneric measures" = "tau-cong"),
+                          "congeneric measures" = "tau-cong",
+                          "essentially equivalent measures categorical" = "tau-equi-categorical",
+                          "congeneric measures categorical" = "tau-cong-categorical"),
               width='100%')
           ),
           ### Cov 8
@@ -392,7 +409,9 @@ br()
               choices = c("default" = "default",
                           "equivalent measures" = "parallel",
                           "essentially equivalent measures" = "tau-equi",
-                          "congeneric measures" = "tau-cong"),
+                          "congeneric measures" = "tau-cong",
+                          "essentially equivalent measures categorical" = "tau-equi-categorical",
+                          "congeneric measures categorical" = "tau-cong-categorical"),
               width='100%')
           ),
           ### Cov 9
@@ -404,7 +423,9 @@ br()
               choices = c("default" = "default",
                           "equivalent measures" = "parallel",
                           "essentially equivalent measures" = "tau-equi",
-                          "congeneric measures" = "tau-cong"),
+                          "congeneric measures" = "tau-cong",
+                          "essentially equivalent measures categorical" = "tau-equi-categorical",
+                          "congeneric measures categorical" = "tau-cong-categorical"),
               width='100%')
           ),
           ### Cov 10
@@ -416,7 +437,9 @@ br()
               choices = c("default" = "default",
                           "equivalent measures" = "parallel",
                           "essentially equivalent measures" = "tau-equi",
-                          "congeneric measures" = "tau-cong"),
+                          "congeneric measures" = "tau-cong",
+                          "essentially equivalent measures categorical" = "tau-equi-categorical",
+                          "congeneric measures categorical" = "tau-cong-categorical"),
               width='100%')
           )
         ),
@@ -428,18 +451,23 @@ br()
         br(),
         selectInput("control", "Reference Group", "", width='60%'),
         radioButtons("missing", "Missing Data", 
-                     choices=c("listwise","fiml"), 
-                     selected = "listwise"),
+                     choices=c("default","listwise","fiml","pairwise"), 
+                     selected = "default"),
         radioButtons("fixed.cell", "Sampling Model", 
                      choices=c("default"="default",
                                "stochastic"="stochastic",
                                "fixed cell sizes"="fixed",
                                "fixed cell sizes and fixed means of Z"="fixed+e"), 
                      selected = "default"),
+        radioButtons("estimator", "Estimator", 
+                     choices=c("default"="default",
+                               "ML"="ML",
+                               "DWLS"="DWLS"), 
+                     selected = "default"),
         radioButtons("se", "Standard Errors", 
-                     choices=c("standard","boot","first.order",
+                     choices=c("default","standard","boot",
                                "robust.sem","robust.huber.white"),
-                     selected = "standard"),
+                     selected = "default"),
         conditionalPanel(
           condition = "input.se == 'boot'",
           numericInput("bootstrap", "Number of bootstrap draws", 

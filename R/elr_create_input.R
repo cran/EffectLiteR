@@ -5,6 +5,14 @@ createInput <- function(y, x, k, z, data, method, control, measurement,
                         add, method_args){
   
   d <- data
+  
+  ## fix problems with tibbles
+  if(any(c("tbl_df","tbl") %in% class(d))){
+    message("EffectLiteR message: tibbles are currently not supported. Converted to data.frame")
+    d <- as.data.frame(d)
+  }
+  
+  
   latentz <- z[which(!z %in% names(data))] ##TODO fix for interactions between continuous covariates
   manifestz <- z[which(z %in% names(data))]
   vnames <- list(y=y,x=x,k=k,z=z,propscore=propscore,latentz=latentz,manifestz=manifestz)  
@@ -15,6 +23,12 @@ createInput <- function(y, x, k, z, data, method, control, measurement,
     if(fixed.z=="default"){fixed.z <- FALSE}
     if(homoscedasticity=="default"){homoscedasticity <- FALSE}
     if(test.stat=="default"){test.stat <- "Chisq"}
+    
+    if(!is.null(weights)){
+      if(x=="g"){
+        stop('EffectLiteR error: Please rename treatment variable ("g" is not allowed).')
+      }
+    }
   }
 
   if(method=="lm"){
@@ -187,14 +201,6 @@ createInput <- function(y, x, k, z, data, method, control, measurement,
   
   
   complexsurvey <- list(ids=ids, weights=weights)
-  
-  ## robust se only works with fixed group sizes (TODO: Ask Yves why?)
-  if(se == "robust.sem" & fixed.cell==FALSE){
-    
-    warning("EffectLiteR warning: SE robust.sem currently only works with fixed cell sizes. Please use fixed.cell=TRUE.")
-    
-  }
-  
   
   res <- new("input",
              method=method,

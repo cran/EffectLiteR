@@ -43,6 +43,8 @@ shinyServer(function(input, output, session) {
         return(MDRS2016)
       }else if(exdata=="sophonet_data_simulated"){
         return(sophonet_data_simulated)
+      }else if(exdata=="elrdata_categorical_items"){
+        return(elrdata_categorical_items)
       }
     }
     
@@ -121,6 +123,7 @@ shinyServer(function(input, output, session) {
                      control=input$control,
                      measurement=mm,
                      missing=input$missing,
+                     estimator=input$estimator,
                      se=input$se,
                      bootstrap=input$bootstrap,
                      fixed.cell=fixed.cell,
@@ -152,7 +155,7 @@ shinyServer(function(input, output, session) {
     if(!is.null(input$propscore)){
       d <- dataInput()
       x <- d[[input$variablex]]    
-      ng <- length(unique(x))
+      ng <- length(unique(na.omit(x)))
       zselect <- c(zselect, paste0("logprop",1:(ng-1)))
     }
         
@@ -164,7 +167,7 @@ shinyServer(function(input, output, session) {
     
     d <- dataInput()
     x <- d[[input$variablex]]    
-    ng <- length(unique(x))
+    ng <- length(unique(na.omit(x)))
     res <- paste0("g",2:ng-1)
     
     return(res)
@@ -189,7 +192,7 @@ shinyServer(function(input, output, session) {
     
     d <- dataInput()
     x <- d[[input$variablex]]    
-    ng <- length(unique(x))
+    ng <- length(unique(na.omit(x)))
     
     if(!is.null(input$propscore)){
       zselect <- c(zselect, input$propscore)
@@ -226,7 +229,7 @@ shinyServer(function(input, output, session) {
     
     d <- dataInput()
     x <- d[[input$variablex]]    
-    ng <- length(unique(x))
+    ng <- length(unique(na.omit(x)))
       
     if(!is.null(input$propscore)){
       zselect3 <- c(zselect3, input$propscore)
@@ -270,7 +273,7 @@ shinyServer(function(input, output, session) {
 
     d <- dataInput()
     x <- d[[input$variablex]]
-    ng <- length(unique(x))
+    ng <- length(unique(na.omit(x)))
     res <- paste0("g",2:ng-1)
 
     return(res)
@@ -294,7 +297,7 @@ shinyServer(function(input, output, session) {
 
     d <- dataInput()
     x <- d[[input$variablex]]
-    ng <- length(unique(x))
+    ng <- length(unique(na.omit(x)))
 
     if(!is.null(input$propscore)){
       zselect4 <- c(zselect4, input$propscore)
@@ -330,7 +333,7 @@ shinyServer(function(input, output, session) {
     
     d <- dataInput()
     x <- d[[input$variablex]]
-    ng <- length(unique(x))
+    ng <- length(unique(na.omit(x)))
     
     if(!is.null(input$propscore)){
       zselect5 <- c(zselect5, paste0("logprop",1:(ng-1)))
@@ -353,7 +356,7 @@ shinyServer(function(input, output, session) {
       
       ## determine number of cells
       d <- dataInput()
-      ng <- length(unique(d[[input$variablex]]))
+      ng <- length(unique(na.omit(d[[input$variablex]])))
       nk <- 1
       if(length(input$variablek) != 0){
         for(i in 1:length(input$variablek)){
@@ -428,12 +431,13 @@ shinyServer(function(input, output, session) {
       
       ## switch to default options if custom mmodel is not specified
       if(!input$custommeasmodels){mmodel <- NULL}
-      
+
       mm <- generateMeasurementModel(
         names=names,
         indicators=indicators,
         ncells=ncells,
-        model=mmodel
+        model=mmodel,
+        data=d
       )
       
       return(mm)
@@ -932,6 +936,7 @@ shinyServer(function(input, output, session) {
                     "control=\"", input$control, "\", ",
                     "measurement=", printmm, ", ",
                     "missing=\"", input$missing, "\", ",
+                    "estimator=\"", input$estimator, "\", ",
                     "se=\"", input$se, "\", ",
                     printbootstrap,
                     printfixedcell, ", ",
