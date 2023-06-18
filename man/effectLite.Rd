@@ -65,9 +65,9 @@ will not be estimated.}
 
 \item{propscore}{Vector of covariates (character vector) that will be used to compute (multiple) propensity scores based on a multinomial regression without interactions. Alternatively, the user can specify a formula with the treatment variable as dependent variable for more control over the propensity score model.}
 
-\item{ids}{Formula specifying cluster ID variables. Will be passed on to \code{\link[lavaan.survey]{lavaan.survey}}. See \code{\link[survey]{svydesign}} for details.}
+\item{ids}{Formula specifying cluster ID variables. Will be passed on to \code{lavaan.survey} if \code{lavaan.survey} is installed. If not, the \code{cluster} argument in \code{\link[lavaan]{sem}} will be used. See \code{\link[survey]{svydesign}} for details.}
 
-\item{weights}{Formula to specify sampling weights. Currently only one weight variable is supported. Will be passed on to \code{\link[lavaan.survey]{lavaan.survey}}. See \code{\link[survey]{svydesign}} for details. Note: Only use weights if you know what you are doing. For example, some conditional treatment effects may require different weights than average effects.}
+\item{weights}{Formula to specify sampling weights. Currently only one weight variable is supported. Will be passed on to \code{lavaan.survey} if \code{lavaan.survey} is installed. If not, the \code{sampling.weights} argument in \code{\link[lavaan]{sem}} will be used. See \code{svydesign} for details. Note: Only use weights if you know what you are doing. For example, some conditional treatment effects may require different weights than average effects.}
 
 \item{add}{Character string that will be pasted at the end of the generated lavaan syntax. Can for example be used to add additional (in-) equality constraints or to compute user-defined conditional effects.}
 
@@ -77,7 +77,7 @@ will not be estimated.}
 Object of class effectlite.
 }
 \description{
-This function is the main funtion of the package and can be used to estimate
+This function is the main function of the package and can be used to estimate
 average and conditional effects of a treatment variable on an outcome variable,
 taking into account any number of continuous and categorical covariates.
 It automatically generates lavaan syntax for a multi-group structural equation

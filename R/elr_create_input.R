@@ -54,9 +54,11 @@ createInput <- function(y, x, k, z, data, method, control, measurement,
     if(length(measurement) != 0){
       stop('EffectLiteR error: Measurement models are currently not allowed with method="lm".')
     }
-
+    
     if(length(add) != 0){
-      stop('EffectLiteR error: Additional syntax is currently not allowed with method="lm".')
+      if(grepl("==", add) | grepl(">", add) | grepl("<", add)){
+        stop('EffectLiteR error: Equality and inequality constraints are currently not allowed with method="lm".')
+      }
     }
     
     if(ids != ~0){
