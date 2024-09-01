@@ -1,15 +1,5 @@
-library(EffectLiteR)
-library(lavaan)
-library(methods)
-library(shiny)
-library(foreign)
-library(ggplot2)
-library(nnet)
-library(lavaan.survey)
 
 options(shiny.maxRequestSize=100*1024^2)
-
-source("elrEffects.R")
 
 shinyServer(function(input, output, session) {
   
@@ -20,6 +10,7 @@ shinyServer(function(input, output, session) {
   
   ######## Reactive Data Input ########
   dataInput <- reactive({
+    
     inFile <- input$file1
     exdata <- input$exdata
     
@@ -30,6 +21,8 @@ shinyServer(function(input, output, session) {
         return(example01)  
       }else if(exdata=="elrdata_logreg"){
         return(elrdata_logreg)  
+      }else if(exdata=="elrdata_kieferetal2024"){
+        return(elrdata_kieferetal2024)  
       }                        
     }
     
@@ -187,15 +180,14 @@ shinyServer(function(input, output, session) {
 
   
   ###### Output Data Table #########  
-  output$mytable1 = renderDataTable({ 
+  output$mytable1 = DT::renderDT({
     d <- dataInput()
-    dprint <- format(d, digits=3)
-    dprint
-  })
+    if(!is.null(d)){
+      d <- format(d, digits=3)
+      d <- DT::datatable(d)
+    }
+    d})
 
-  
-
-  
   # ###### Output Regression Equation 1 #########
   # output$regequation <- renderPrint({      
   #   
@@ -255,19 +247,23 @@ shinyServer(function(input, output, session) {
     eyx0kz <- paste0("E(",y,"|",x,"=",from,kz,")")
     
     res <- NULL
-    if(type=="difference"){
+    if(type=="Average Treatment Effect"){
       res <- paste0(ave,"E[", eyx1kz, " - ", eyx0kz, "]", collapse=" ")
       
-    }else if(type=="ratio"){
+    }else if(type=="Simple Ratio of Averages"){
+      res <- paste0(ave,"E[", eyx1kz, "] / E[", eyx0kz, "]", collapse=" ")
+      
+    }else if(type=="Odds Ratio of Averages"){
+      res <- paste0(ave,"(E[", eyx1kz, "] / (1 - E[", eyx1kz, "]))", " : ",
+                    "(E[", eyx0kz, "] / (1 - E[", eyx0kz, "]))", collapse=" ")
+      
+    }else if(type=="Average of Simple Ratios"){
       res <- paste0(ave,"E[", eyx1kz, " / ", eyx0kz, "]", collapse=" ")
     
-    }else if(type=="oddsratio"){
-      res <- paste0(ave,"E[", eyx1kz, " / (1-", eyx1kz, ")", " : ",
-                    eyx0kz, " / (1-", eyx0kz, ")","]", collapse=" ")
+    }else if(type=="Average of Odds Ratios"){
+      res <- paste0(ave,"E[(", eyx1kz, " / (1-", eyx1kz, "))", " : (",
+                    eyx0kz, " / (1-", eyx0kz, ")",")]", collapse=" ")
     }  
-    
-    
-    
                   
     cat(res)
     
@@ -315,22 +311,25 @@ shinyServer(function(input, output, session) {
     condvar <- input$subsetvar
     valcondvar <- input$valsubset
     
-    ave <- "Conditional Effect: "
-    eyx1kz <- paste0("E(",y,"|",x,"=",to,kz,")")
-    eyx0kz <- paste0("E(",y,"|",x,"=",from,kz,")")
-    cond <- paste0(" | ", condvar, "=", valcondvar, collapse="")
+    # eyx1kz <- paste0("E(",y,"|",x,"=",to,kz,")")
+    # eyx0kz <- paste0("E(",y,"|",x,"=",from,kz,")")
+    # cond <- paste0(" | ", condvar, "=", valcondvar, collapse="")
     
-    res <- NULL
-    if(type=="difference"){
-      res <- paste0(ave,"E[", eyx1kz, " - ", eyx0kz, cond, "]", collapse=" ")
-      
-    }else if(type=="ratio"){
-      res <- paste0(ave,"E[", eyx1kz, " / ", eyx0kz, cond, "]", collapse=" ")
-      
-    }else if(type=="oddsratio"){
-      res <- paste0(ave,"E[", eyx1kz, " / (1-", eyx1kz, ")", " : ",
-                    eyx0kz, " / (1-", eyx0kz, ")", cond, "]", collapse=" ")
-    }  
+    ave <- "Conditional Effect for "
+    cond <- paste0(condvar, "=", valcondvar, collapse="")
+    res <- paste0(ave, cond)
+    
+    # res <- NULL
+    # if(type=="Average Treatment Effect"){
+    #   res <- paste0(ave,"E[", eyx1kz, " - ", eyx0kz, cond, "]", collapse=" ")
+    #   
+    # }else if(type=="Average of Simple Ratios"){
+    #   res <- paste0(ave,"E[", eyx1kz, " / ", eyx0kz, cond, "]", collapse=" ")
+    #   
+    # }else if(type=="Average of Odds Ratios"){
+    #   res <- paste0(ave,"E[", eyx1kz, " / (1-", eyx1kz, ")", " : ",
+    #                 eyx0kz, " / (1-", eyx0kz, ")", cond, "]", collapse=" ")
+    # }  
     
     cat(res)
     }

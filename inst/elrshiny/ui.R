@@ -535,7 +535,7 @@ tabPanel('Complex Survey',
                         multiple=FALSE, selected="",
                         options = list(placeholder = 'select sampling weights'),
                         width='60%'),
-         helpText('The lavaan.survey package is called to account for cluster variables and sampling weights. This is an experimental feature.'),
+         helpText('The cluster and sampling weights argument of lavaan::sem are used for cluster variables and sampling weights. The observed frequencies will be re-computed. This is an experimental feature.'),
          helpText('Note: Only use weights if you know what you are doing. For example, some conditional treatment effects may require different weights than average effects.')
          
       ),
@@ -556,16 +556,25 @@ tabPanel('User-Specified Tests',
          br(),
          br(),
          h5("User-Specified Wald Test"),
-         helpText('This text can be used to specify an additional (user-specified) Wald test based on names of model parameters.'),
+         helpText('This text can be used to specify an additional (user-specified) Wald test based on names of model parameters (see syntax tab).'),
          helpText('Example: g000 == 0 ; g100 == 0'),
-         tags$textarea(id="add.syntax.wald", rows=5, cols=40, "")
+         tags$textarea(id="add.syntax.wald", rows=5, cols=40, ""),
+         br(),
+         br(),
+         h5("User-Specified Informative Hypothesis Test"),
+         helpText('This text can be used to specify an additional (user-specified) informative hypothesis test based on names of model parameters (see syntax tab).'),
+         helpText('Example: adjmean1 > adjmean0'),
+         tags$textarea(id="add.syntax.iht", rows=5, cols=40, ""),
+         radioButtons("iht.test.stat", "Informative Hypothesis Test Statistic", 
+                      choices=c("default","Fbar","Wald"), 
+                      selected = "default")
 )
   )),
   
   mainPanel(
     tabsetPanel(
       ######### Data Table ##########
-      tabPanel('Data', dataTableOutput("mytable1")),
+      tabPanel('Data', DT::DTOutput("mytable1")),
       
       ######### EffectLiteR ##########
       tabPanel("EffectLiteR", verbatimTextOutput("summary")),
@@ -592,7 +601,7 @@ tabPanel('User-Specified Tests',
                downloadLink('downloadConditionalEffects', 'Download Conditional Effects Data'),
                br(),
                br(),
-               dataTableOutput("condeffs")),
+               DT::DTOutput("condeffs")),
       
       ######### Conditional Effects II ##########
       tabPanel("Conditional Effects II", 
@@ -635,7 +644,7 @@ tabPanel('User-Specified Tests',
                column(12, wellPanel(
                  h5("Subset used to compute aggregated effects"),
                  uiOutput("uiaggeff3"),
-                 dataTableOutput("aggeffstable")
+                 DT::DTOutput("aggeffstable")
                ))
       ),
       
@@ -666,7 +675,8 @@ tabPanel('User-Specified Tests',
       tabPanel("User-Specified Tests", 
                verbatimTextOutput("covtests"),
                verbatimTextOutput("addeffects"),
-               verbatimTextOutput("waldtest")
+               verbatimTextOutput("waldtest"),
+               verbatimTextOutput("iht")
       ),
       
       ######### Plot 1 ##########
